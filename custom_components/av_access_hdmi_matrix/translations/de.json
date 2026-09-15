@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AV Access HDMI-Matrix",
+        "description": "Verbindung zum AV Access HDMI-Matrix Controller herstellen.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum AV Access HDMI-Matrix Controller fehlgeschlagen.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieser AV Access HDMI-Matrix Controller ist bereits konfiguriert."
+    }
+  }
+}
