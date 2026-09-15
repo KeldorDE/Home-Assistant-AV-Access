@@ -1,0 +1,20 @@
+hore .env
+*.log
+/.fleet
+/.idea
+/.nova
+/.zed
+
+!.idea/
+.idea/*
+!.idea/codeStyles/
+!.idea/inspectionProfiles/
+!.idea/runConfigurations/
+!.idea/fileTemplates/
+!.idea/watcherTasks.xml
+!.idea/php.xml
+!.idea/laravel-idea.xml
+!.idea/prettier.xml
+*.iml
+*.iws
+*.ipr
