@@ -72,7 +72,8 @@ installed in Home Assistant beforehand.
 7. Restart Home Assistant.
 
 The repository stays in the list, so updates are offered by HACS like for any
-other integration.
+other integration. Only tagged releases are offered as updates, never single
+commits of the default branch.
 
 After restarting Home Assistant, go to:
 
