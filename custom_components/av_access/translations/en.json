@@ -1,0 +1,126 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "This AV Access HDMI Matrix Controller is already configured.",
+            "already_in_progress": "Configuration for this AV Access HDMI Matrix Controller is already in progress.",
+            "reconfigure_successful": "The AV Access HDMI-Matrix Controller was reconfigured successfully.",
+            "wrong_device": "The configured address belongs to a different HDMI matrix."
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to the AV Access HDMI-Matrix Controller.",
+            "unknown": "Unexpected error."
+        },
+        "step": {
+            "reconfigure": {
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                },
+                "description": "Update the connection details of your AV Access HDMI-Matrix Controller.",
+                "title": "AV Access HDMI-Matrix"
+            },
+            "user": {
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                },
+                "description": "Connect to your AV Access HDMI-Matrix Controller.",
+                "title": "AV Access HDMI-Matrix"
+            }
+        }
+    },
+    "entity": {
+        "select": {
+            "input_edid": {
+                "name": "Input {input} EDID",
+                "state": {
+                    "1080p60_2_0ch": "1080P@60Hz 2.0ch audio",
+                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch audio With HDR",
+                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch audio With HDR",
+                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch audio With HDR",
+                    "4k30_8bit_2_0ch": "4K@30Hz/8bit only 2.0ch audio Without HDR",
+                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch audio With HDR",
+                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch audio With HDR",
+                    "5k_super_widescreen_2ch": "5K Super Wide_2CH",
+                    "5k_ultra_widescreen_2ch": "5K Ultra Wide_2CH",
+                    "copy_from_output_1": "Copy from output 1",
+                    "copy_from_output_2": "Copy from output 2",
+                    "copy_from_output_3": "Copy from output 3",
+                    "copy_from_output_4": "Copy from output 4",
+                    "smart_edid": "Smart EDID",
+                    "write_edid": "EDID Write"
+                }
+            },
+            "output_input": {
+                "name": "Output {output} input",
+                "state": {
+                    "hdmi_1": "HDMI 1",
+                    "hdmi_2": "HDMI 2",
+                    "hdmi_3": "HDMI 3",
+                    "hdmi_4": "HDMI 4",
+                    "hdmi_5": "HDMI 5",
+                    "hdmi_6": "HDMI 6",
+                    "hdmi_7": "HDMI 7",
+                    "hdmi_8": "HDMI 8"
+                }
+            }
+        },
+        "sensor": {
+            "input_name": {
+                "name": "Input {input} name"
+            },
+            "output_input_number": {
+                "name": "Output {output} input number"
+            },
+            "output_name": {
+                "name": "Output {output} name"
+            }
+        },
+        "switch": {
+            "input_hdcp": {
+                "name": "Input {input} HDCP"
+            }
+        }
+    },
+    "options": {
+        "error": {
+            "duplicate_labels": "Every name must be unique. Please check the names you entered."
+        },
+        "step": {
+            "init": {
+                "description": "Give the ports a name of your own. Empty fields keep the default name.",
+                "sections": {
+                    "input_labels": {
+                        "data": {
+                            "input_1": "Input 1",
+                            "input_2": "Input 2",
+                            "input_3": "Input 3",
+                            "input_4": "Input 4",
+                            "input_5": "Input 5",
+                            "input_6": "Input 6",
+                            "input_7": "Input 7",
+                            "input_8": "Input 8"
+                        },
+                        "description": "These names replace \"HDMI 1\" and so on when you select the input of an output, and are available as a sensor.",
+                        "name": "Inputs"
+                    },
+                    "output_labels": {
+                        "data": {
+                            "output_1": "Output 1",
+                            "output_2": "Output 2",
+                            "output_3": "Output 3",
+                            "output_4": "Output 4",
+                            "output_5": "Output 5",
+                            "output_6": "Output 6",
+                            "output_7": "Output 7",
+                            "output_8": "Output 8"
+                        },
+                        "description": "These names are available as a sensor, for example as a heading in a dashboard.",
+                        "name": "Outputs"
+                    }
+                },
+                "title": "Name the ports"
+            }
+        }
+    }
+}

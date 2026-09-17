@@ -1,0 +1,20 @@
+{
+    "entity": {
+        "select": {
+            "output_input": {
+                "default": "mdi:hdmi-port"
+            },
+            "input_edid": {
+                "default": "mdi:monitor-eye"
+            }
+        },
+        "switch": {
+            "input_hdcp": {
+                "default": "mdi:shield-lock",
+                "state": {
+                    "off": "mdi:shield-lock-open"
+                }
+            }
+        }
+    }
+}

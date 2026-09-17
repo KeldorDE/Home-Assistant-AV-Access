@@ -16,10 +16,16 @@ class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
         """Initialize the AV Access HDMI-Matrix entity."""
         super().__init__(coordinator)
 
+        device = coordinator.device_info
+
         self._attr_device_info = DeviceInfo(
             identifiers={
                 (DOMAIN, coordinator.config_entry.entry_id),
             },
             name=coordinator.config_entry.title,
-            manufacturer="AV Access",
+            manufacturer=device.manufacturer or "AV Access",
+            model=device.model,
+            sw_version=device.sw_version,
+            hw_version=device.hw_version,
+            configuration_url=device.configuration_url,
         )

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 import logging
+from typing import TYPE_CHECKING
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -16,22 +16,28 @@ from .api import (
     AVAccessApiClient,
     AVAccessApiError,
     AVAccessConnectionError,
+    AVAccessDeviceInfo,
+    AVAccessStatus,
 )
 from .const import UPDATE_INTERVAL
+
+if TYPE_CHECKING:
+    from . import AVAccessConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class AVAccessCoordinator(DataUpdateCoordinator[dict]):
+class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
     """Coordinate data updates from the AV Access HDMI-Matrix Controller."""
 
-    config_entry: ConfigEntry
+    config_entry: AVAccessConfigEntry
 
     def __init__(
         self,
         hass: HomeAssistant,
         client: AVAccessApiClient,
-        config_entry: ConfigEntry,
+        config_entry: AVAccessConfigEntry,
+        device_info: AVAccessDeviceInfo,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -44,7 +50,10 @@ class AVAccessCoordinator(DataUpdateCoordinator[dict]):
 
         self.client = client
 
-    async def _async_update_data(self) -> dict:
+        # The static device information is read once while setting up the entry.
+        self.device_info = device_info
+
+    async def _async_update_data(self) -> AVAccessStatus:
         """Fetch the latest matrix state."""
         try:
             return await self.client.get_status()
