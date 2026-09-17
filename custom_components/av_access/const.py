@@ -4,6 +4,11 @@ from __future__ import annotations
 
 DOMAIN = "av_access"
 
+# Fired when a poll finds a state the matrix changed without a command from
+# Home Assistant, so the logbook can name the front panel or the remote control
+# as the origin of the state change.
+EVENT_EXTERNAL_CHANGE = "av_access_external_change"
+
 # Option keys holding the user defined names of the ports.
 CONF_INPUT_LABELS = "input_labels"
 CONF_OUTPUT_LABELS = "output_labels"
@@ -18,14 +23,14 @@ DEFAULT_NAME = "AV Access"
 
 MANUFACTURER = "AV Access"
 
-# Seconds between two routing polls. Every command occupies the matrix for at
-# least COMMAND_DELAY seconds, so polling faster gains nothing.
-UPDATE_INTERVAL = 10
-
-# Seconds between two full syncs. EDID and HDCP cost one command per input and
-# only change through this integration or the web interface of the matrix, so
-# they are read far less often than the routing.
-FULL_SYNC_INTERVAL = 60
+# Seconds between two polls. The routing is read on every poll, EDID and HDCP
+# for one input per poll. Changes made at the front panel or with the remote
+# control are only noticed by a poll, so a short interval keeps Home Assistant
+# in sync. Every command occupies the matrix for at least COMMAND_DELAY
+# seconds, which is the lower bound of a useful interval.
+DEFAULT_SCAN_INTERVAL = 3
+MIN_SCAN_INTERVAL = 1
+MAX_SCAN_INTERVAL = 300
 
 # The matrix accepts one command at a time and needs a pause afterwards.
 # Sending commands back to back has been observed to freeze the device.

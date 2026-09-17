@@ -327,6 +327,16 @@ class AVAccessClient:
         """Return the address of the matrix."""
         return self._host
 
+    @property
+    def input_count(self) -> int:
+        """Return the number of inputs of the matrix."""
+        return self._input_count
+
+    @property
+    def hdcp_supported(self) -> bool:
+        """Return whether the matrix understands the HDCP commands."""
+        return self._hdcp_supported
+
     async def async_send_command(self, command: str) -> str:
         """Send a command to the matrix and return its raw response.
 
@@ -443,17 +453,19 @@ class AVAccessClient:
         edid: dict[str, int] = {}
 
         for input_number in range(1, self._input_count + 1):
-            value = parse_edid_response(
-                await self.async_send_command(
-                    COMMAND_EDID.format(input=input_number)
-                ),
-                input_number,
-            )
+            value = await self.async_get_input_edid(input_number)
 
             if value is not None:
                 edid[str(input_number)] = value
 
         return edid
+
+    async def async_get_input_edid(self, input_number: int) -> int | None:
+        """Return the EDID of a single input."""
+        return parse_edid_response(
+            await self.async_send_command(COMMAND_EDID.format(input=input_number)),
+            input_number,
+        )
 
     async def async_get_hdcp(self) -> dict[str, bool]:
         """Return the HDCP state of every input.
@@ -467,12 +479,7 @@ class AVAccessClient:
         hdcp: dict[str, bool] = {}
 
         for input_number in range(1, self._input_count + 1):
-            value = parse_hdcp_response(
-                await self.async_send_command(
-                    COMMAND_HDCP.format(input=input_number)
-                ),
-                input_number,
-            )
+            value = await self.async_get_input_hdcp(input_number)
 
             if value is None:
                 # Unknown commands are answered with the welcome line, so a
@@ -489,6 +496,16 @@ class AVAccessClient:
             hdcp[str(input_number)] = value
 
         return hdcp
+
+    async def async_get_input_hdcp(self, input_number: int) -> bool | None:
+        """Return the HDCP state of a single input."""
+        if not self._hdcp_supported:
+            return None
+
+        return parse_hdcp_response(
+            await self.async_send_command(COMMAND_HDCP.format(input=input_number)),
+            input_number,
+        )
 
     async def async_set_output(self, output: int, input_number: int) -> int:
         """Route an HDMI input to an output and return the confirmed input."""

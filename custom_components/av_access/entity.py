@@ -1,10 +1,15 @@
 """Base entity for the AV Access HDMI matrix integration."""
 
+from typing import Any
+
+from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.core import Context, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
+    EVENT_EXTERNAL_CHANGE,
     MANUFACTURER,
     PLACEHOLDER_INPUT,
     PLACEHOLDER_NAME,
@@ -14,15 +19,25 @@ from .const import (
 from .coordinator import AVAccessCoordinator
 from .labels import input_custom_name, output_custom_name
 
+_UNKNOWN = object()
+
 
 class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
     """Base entity for AV Access HDMI matrix entities."""
 
     _attr_has_entity_name = True
 
+    # Entities whose state the matrix can also change at the front panel or with
+    # the remote control report such a change to the logbook.
+    _reports_external_change = False
+
     def __init__(self, coordinator: AVAccessCoordinator) -> None:
         """Initialize the AV Access HDMI matrix entity."""
         super().__init__(coordinator)
+
+        # The state of the last update, used to notice a change the matrix made
+        # on its own.
+        self._previous_state: Any = _UNKNOWN
 
         device = coordinator.device_info
 
@@ -36,6 +51,52 @@ class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
             sw_version=device.sw_version,
             hw_version=device.hw_version,
             configuration_url=device.configuration_url,
+        )
+
+    async def async_added_to_hass(self) -> None:
+        """Remember the current state before the first update arrives."""
+        await super().async_added_to_hass()
+
+        if self._reports_external_change:
+            self._previous_state = self.state
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Write the new state, telling the logbook where a change came from."""
+        if self._reports_external_change:
+            self._async_report_external_change()
+
+        super()._handle_coordinator_update()
+
+    @callback
+    def _async_report_external_change(self) -> None:
+        """Fire an event for a state the matrix changed without a command.
+
+        A state change only names its origin in the logbook if it shares the
+        context with an event describing it. Home Assistant sets that context
+        for its own commands, so only a change made at the front panel or with
+        the remote control needs one.
+        """
+        state = self.state
+        previous_state = self._previous_state
+
+        self._previous_state = state
+
+        if (
+            self.coordinator.command_update
+            or previous_state is _UNKNOWN
+            or state == previous_state
+        ):
+            return
+
+        context = Context()
+
+        self.async_set_context(context)
+
+        self.hass.bus.async_fire(
+            EVENT_EXTERNAL_CHANGE,
+            {ATTR_ENTITY_ID: self.entity_id},
+            context=context,
         )
 
     def _name_after_input(self, number: int) -> None:

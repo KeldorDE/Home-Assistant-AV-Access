@@ -14,17 +14,25 @@
             "reconfigure": {
                 "data": {
                     "host": "Host",
-                    "port": "Port"
+                    "port": "Port",
+                    "scan_interval": "Abfrageintervall"
                 },
-                "description": "Verbindungsdaten der AV Access HDMI-Matrix aktualisieren. Der Port ist der Telnet-Port der Matrix, standardmäßig 23.",
+                "data_description": {
+                    "scan_interval": "Anzahl der Sekunden zwischen den Abfragen der Matrix. Ein kürzeres Intervall sorgt dafür, dass Änderungen am Frontpanel oder über die Fernbedienung schneller von Home Assistant erkannt werden."
+                },
+                "description": "Aktualisiere die Verbindungsdaten deiner AV Access HDMI-Matrix. Der Port ist der Telnet-Port der Matrix und standardmäßig auf 23 gesetzt.",
                 "title": "AV Access HDMI-Matrix"
             },
             "user": {
                 "data": {
                     "host": "Host",
-                    "port": "Port"
+                    "port": "Port",
+                    "scan_interval": "Abfrageintervall"
                 },
-                "description": "Verbindung zur AV Access HDMI-Matrix herstellen. Der Port ist der Telnet-Port der Matrix, standardmäßig 23.",
+                "data_description": {
+                    "scan_interval": "Anzahl der Sekunden zwischen den Abfragen der Matrix. Ein kürzeres Intervall sorgt dafür, dass Änderungen am Frontpanel oder über die Fernbedienung schneller von Home Assistant erkannt werden."
+                },
+                "description": "Stelle eine Verbindung zu deiner AV Access HDMI-Matrix her. Der Port ist der Telnet-Port der Matrix und standardmäßig auf 23 gesetzt.",
                 "title": "AV Access HDMI-Matrix"
             }
         }

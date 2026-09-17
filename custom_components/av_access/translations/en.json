@@ -14,7 +14,11 @@
             "reconfigure": {
                 "data": {
                     "host": "Host",
-                    "port": "Port"
+                    "port": "Port",
+                    "scan_interval": "Polling interval"
+                },
+                "data_description": {
+                    "scan_interval": "Number of seconds between queries to the matrix. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant."
                 },
                 "description": "Update the connection details of your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
                 "title": "AV Access HDMI matrix"
@@ -22,7 +26,11 @@
             "user": {
                 "data": {
                     "host": "Host",
-                    "port": "Port"
+                    "port": "Port",
+                    "scan_interval": "Polling interval"
+                },
+                "data_description": {
+                    "scan_interval": "Number of seconds between queries to the matrix. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant."
                 },
                 "description": "Connect to your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
                 "title": "AV Access HDMI matrix"

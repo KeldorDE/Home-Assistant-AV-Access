@@ -55,6 +55,7 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
     """Select the HDMI input for a matrix output."""
 
     _attr_translation_key = TRANSLATION_KEY_OUTPUT_INPUT
+    _reports_external_change = True
 
     def __init__(
         self,
@@ -108,6 +109,7 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     """Select the EDID for a matrix input."""
 
     _attr_translation_key = TRANSLATION_KEY_INPUT_EDID
+    _reports_external_change = True
     # The EDID options are named by the matrix itself and are not renameable.
     _attr_options = list(EDID_OPTION_BY_VALUE.values())
 
