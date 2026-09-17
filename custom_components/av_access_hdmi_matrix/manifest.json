@@ -1,0 +1,14 @@
+{
+  "domain": "av_access_hdmi_matrix",
+  "name": "AV Access HDMI-Matrix",
+  "codeowners": [
+    "@KeldorDE"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/KeldorDE/Home-Assistant-AV-Access-HDMI-Matrix",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/KeldorDE/Home-Assistant-AV-Access-HDMI-Matrix/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
