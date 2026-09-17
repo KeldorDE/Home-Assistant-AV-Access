@@ -30,7 +30,7 @@ async def async_setup_entry(
     entry: AVAccessConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up AV Access HDMI-Matrix name sensors."""
+    """Set up AV Access HDMI matrix name sensors."""
     coordinator = entry.runtime_data
     device = coordinator.device_info
 

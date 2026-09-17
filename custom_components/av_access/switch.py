@@ -1,4 +1,4 @@
-"""Switch platform for the AV Access HDMI-Matrix integration."""
+"""Switch platform for the AV Access HDMI matrix integration."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ async def async_setup_entry(
     entry: AVAccessConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up AV Access HDMI-Matrix switch entities."""
+    """Set up AV Access HDMI matrix switch entities."""
     coordinator = entry.runtime_data
 
     # A matrix that does not support HDCP reports no HDCP state at all.
@@ -74,9 +74,7 @@ class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):
 
     async def _async_set_hdcp(self, enabled: bool) -> None:
         """Apply the requested HDCP state."""
-        await self.coordinator.client.set_hdcp(
+        await self.coordinator.async_set_hdcp(
             self._input,
             enabled,
         )
-
-        await self.coordinator.async_refresh_after_command()

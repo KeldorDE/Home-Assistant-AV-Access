@@ -1,13 +1,13 @@
 {
     "config": {
         "abort": {
-            "already_configured": "This AV Access HDMI Matrix Controller is already configured.",
-            "already_in_progress": "Configuration for this AV Access HDMI Matrix Controller is already in progress.",
-            "reconfigure_successful": "The AV Access HDMI-Matrix Controller was reconfigured successfully.",
+            "already_configured": "This AV Access HDMI matrix is already configured.",
+            "already_in_progress": "Configuration for this AV Access HDMI matrix is already in progress.",
+            "reconfigure_successful": "The AV Access HDMI matrix was reconfigured successfully.",
             "wrong_device": "The configured address belongs to a different HDMI matrix."
         },
         "error": {
-            "cannot_connect": "Failed to connect to the AV Access HDMI-Matrix Controller.",
+            "cannot_connect": "Failed to connect to the AV Access HDMI matrix.",
             "unknown": "Unexpected error."
         },
         "step": {
@@ -16,16 +16,16 @@
                     "host": "Host",
                     "port": "Port"
                 },
-                "description": "Update the connection details of your AV Access HDMI-Matrix Controller.",
-                "title": "AV Access HDMI-Matrix"
+                "description": "Update the connection details of your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
+                "title": "AV Access HDMI matrix"
             },
             "user": {
                 "data": {
                     "host": "Host",
                     "port": "Port"
                 },
-                "description": "Connect to your AV Access HDMI-Matrix Controller.",
-                "title": "AV Access HDMI-Matrix"
+                "description": "Connect to your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
+                "title": "AV Access HDMI matrix"
             }
         }
     },

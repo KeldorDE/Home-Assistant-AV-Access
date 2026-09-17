@@ -12,23 +12,29 @@ CONF_OUTPUT_LABELS = "output_labels"
 DEFAULT_INPUT_NAME = "HDMI {number}"
 DEFAULT_OUTPUT_NAME = "Output {number}"
 
-DEFAULT_PORT = 62225
+# Telnet port of the matrix.
+DEFAULT_PORT = 23
 DEFAULT_NAME = "AV Access"
 
-UPDATE_INTERVAL = 5
+MANUFACTURER = "AV Access"
 
-# The controller sends an SSE comment in this interval to keep the connection
-# alive. A healthy stream therefore never stays silent for longer than this.
-SSE_KEEPALIVE_INTERVAL = 30
+# Seconds between two routing polls. Every command occupies the matrix for at
+# least COMMAND_DELAY seconds, so polling faster gains nothing.
+UPDATE_INTERVAL = 10
 
-# Tolerate one missed keepalive before a stream is considered dead.
-SSE_READ_TIMEOUT = SSE_KEEPALIVE_INTERVAL * 2
+# Seconds between two full syncs. EDID and HDCP cost one command per input and
+# only change through this integration or the web interface of the matrix, so
+# they are read far less often than the routing.
+FULL_SYNC_INTERVAL = 60
 
-# Backoff used to reconnect to the event stream.
-SSE_RECONNECT_INTERVAL = 5
-SSE_RECONNECT_MAX_INTERVAL = 60
+# The matrix accepts one command at a time and needs a pause afterwards.
+# Sending commands back to back has been observed to freeze the device.
+COMMAND_DELAY = 1.0
+CONNECT_TIMEOUT = 3.0
+READ_TIMEOUT = 3.0
+CLOSE_TIMEOUT = 1.0
 
-# Used when the controller does not report the number of ports.
+# Used until the matrix reports a model the port count can be derived from.
 DEFAULT_INPUT_COUNT = 4
 DEFAULT_OUTPUT_COUNT = 4
 
@@ -41,7 +47,7 @@ TRANSLATION_KEY_INPUT_NAME = "input_name"
 TRANSLATION_KEY_OUTPUT_NAME = "output_name"
 TRANSLATION_KEY_OUTPUT_INPUT_NUMBER = "output_input_number"
 
-# The API expects and reports the EDID as a number.
+# The matrix expects and reports the EDID as a number.
 EDID_OPTION_BY_VALUE: dict[int, str] = {
     1: "copy_from_output_1",
     2: "copy_from_output_2",

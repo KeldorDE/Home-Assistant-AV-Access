@@ -7,4 +7,7 @@
 
 *.ipr
 
+__pycache__/
+*.py[cod]
+
 dev/config

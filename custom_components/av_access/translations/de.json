@@ -1,13 +1,13 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Dieser AV Access HDMI-Matrix Controller ist bereits konfiguriert.",
-            "already_in_progress": "Die Einrichtung dieses AV Access HDMI-Matrix Controllers läuft bereits.",
-            "reconfigure_successful": "Der AV Access HDMI-Matrix Controller wurde erfolgreich neu konfiguriert.",
+            "already_configured": "Diese AV Access HDMI-Matrix ist bereits konfiguriert.",
+            "already_in_progress": "Die Einrichtung dieser AV Access HDMI-Matrix läuft bereits.",
+            "reconfigure_successful": "Die AV Access HDMI-Matrix wurde erfolgreich neu konfiguriert.",
             "wrong_device": "Die konfigurierte Adresse gehört zu einer anderen HDMI-Matrix."
         },
         "error": {
-            "cannot_connect": "Verbindung zum AV Access HDMI-Matrix Controller fehlgeschlagen.",
+            "cannot_connect": "Verbindung zur AV Access HDMI-Matrix fehlgeschlagen.",
             "unknown": "Unerwarteter Fehler."
         },
         "step": {
@@ -16,7 +16,7 @@
                     "host": "Host",
                     "port": "Port"
                 },
-                "description": "Verbindungsdaten des AV Access HDMI-Matrix Controllers aktualisieren.",
+                "description": "Verbindungsdaten der AV Access HDMI-Matrix aktualisieren. Der Port ist der Telnet-Port der Matrix, standardmäßig 23.",
                 "title": "AV Access HDMI-Matrix"
             },
             "user": {
@@ -24,7 +24,7 @@
                     "host": "Host",
                     "port": "Port"
                 },
-                "description": "Verbindung zum AV Access HDMI-Matrix Controller herstellen.",
+                "description": "Verbindung zur AV Access HDMI-Matrix herstellen. Der Port ist der Telnet-Port der Matrix, standardmäßig 23.",
                 "title": "AV Access HDMI-Matrix"
             }
         }

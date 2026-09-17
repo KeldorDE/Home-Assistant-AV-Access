@@ -1,4 +1,4 @@
-"""Select platform for the AV Access HDMI-Matrix integration."""
+"""Select platform for the AV Access HDMI matrix integration."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ async def async_setup_entry(
     entry: AVAccessConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up AV Access HDMI-Matrix select entities."""
+    """Set up AV Access HDMI matrix select entities."""
     coordinator = entry.runtime_data
     device = coordinator.device_info
 
@@ -97,12 +97,10 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         if input_number is None:
             raise ServiceValidationError(f"Unsupported input option: {option}")
 
-        await self.coordinator.client.set_output(
+        await self.coordinator.async_set_output(
             self._output,
             input_number,
         )
-
-        await self.coordinator.async_refresh_after_command()
 
 
 class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
@@ -144,9 +142,7 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
         if edid is None:
             raise ServiceValidationError(f"Unsupported EDID option: {option}")
 
-        await self.coordinator.client.set_edid(
+        await self.coordinator.async_set_edid(
             self._input,
             edid,
         )
-
-        await self.coordinator.async_refresh_after_command()

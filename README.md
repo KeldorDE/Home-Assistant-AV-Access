@@ -25,22 +25,23 @@ Support for additional AV Access devices may be added in the future.
 
 ## Requirements
 
-This integration communicates with the AV Access Matrix Controller, which handles communication with the matrix, command serialization, caching and device state.
+The integration talks to the matrix directly over its Telnet port, so nothing
+else has to be installed. The matrix only has to be reachable from Home
+Assistant.
 
 ## State updates
 
-The integration subscribes to the event stream of the controller
-(`GET /events`, Server-Sent Events) and therefore receives every state change
-as a push, including switching at the front panel of the matrix. As long as the
-stream is connected, the integration does not poll at all.
+The matrix accepts a single command at a time and needs a short pause
+afterwards, so all communication is serialized and spaced out by the
+integration. Sending commands back to back has been observed to freeze the
+device.
 
-Every event carries the complete state, so the integration is automatically in
-sync again after a reconnect.
-
-A controller without an event stream answers `/events` with `404`. In that case,
-and whenever the stream is interrupted, the integration falls back to polling
-`GET /status` every few seconds, so older controller versions keep working
-unchanged.
+The routing is polled every 10 seconds, which is the value that also changes
+when somebody switches at the front panel of the matrix. EDID and HDCP cost one
+command per input and only change through this integration or the web interface
+of the matrix, so they are read once a minute. A command issued by Home
+Assistant is confirmed by the matrix and applied immediately, so an entity never
+waits for the next poll.
 
 ## Installation
 
@@ -57,7 +58,7 @@ After restarting Home Assistant, go to:
 
 **Settings → Devices & services → Add integration → AV Access**
 
-and enter the address of your AV Access Matrix Controller.
+and enter the address of your AV Access HDMI matrix.
 
 ## Manual installation
 
@@ -81,12 +82,12 @@ The integration is configured through the Home Assistant UI:
 
 | Field | Required | Description |
 | --- | --- | --- |
-| Host | yes | Address of the AV Access Matrix Controller. |
-| Port | yes | Port of the AV Access Matrix Controller. Defaults to `62225`. |
+| Host | yes | Address of the AV Access HDMI matrix. |
+| Port | yes | Telnet port of the matrix. Defaults to `23`. |
 
 Model, firmware version, the number of inputs and outputs and the link to the
-matrix web interface are read from the controller, so the entities match the
-connected matrix.
+matrix web interface are read from the matrix, so the entities match the
+connected device.
 
 The connection details can be changed later without losing the entities through
 **Settings → Devices & services → AV Access → Reconfigure**.

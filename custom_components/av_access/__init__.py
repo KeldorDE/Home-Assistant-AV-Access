@@ -6,11 +6,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import AVAccessApiClient, AVAccessApiError
+from .client import AVAccessClient, AVAccessError
 from .coordinator import AVAccessCoordinator
-
 
 PLATFORMS: list[Platform] = [
     Platform.SELECT,
@@ -28,30 +26,20 @@ async def async_setup_entry(
 ) -> bool:
     """Set up AV Access HDMI Matrix from a config entry."""
 
-    session = async_get_clientsession(hass)
-
-    client = AVAccessApiClient(
+    client = AVAccessClient(
         host=entry.data[CONF_HOST],
         port=entry.data[CONF_PORT],
-        session=session,
     )
 
     # The static device information determines the device details and the number
     # of entities, so it is read before the platforms are set up.
     try:
-        device_info = await client.get_device_info()
+        device_info = await client.async_get_device_info()
 
-    except AVAccessApiError as err:
+    except AVAccessError as err:
         raise ConfigEntryNotReady(
-            f"Unable to read the AV Access HDMI-Matrix device information: {err}"
+            f"Unable to read the AV Access matrix device information: {err}"
         ) from err
-
-    # Earlier versions derived the unique ID from the connection details.
-    if entry.unique_id != device_info.unique_id:
-        hass.config_entries.async_update_entry(
-            entry,
-            unique_id=device_info.unique_id,
-        )
 
     coordinator = AVAccessCoordinator(
         hass=hass,
@@ -65,10 +53,6 @@ async def async_setup_entry(
 
     # Make the coordinator available to all platforms.
     entry.runtime_data = coordinator
-
-    # From now on the state is received via the event stream, if the controller
-    # supports it. Otherwise the coordinator keeps polling.
-    coordinator.async_start_event_listener()
 
     await hass.config_entries.async_forward_entry_setups(
         entry,
