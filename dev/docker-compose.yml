@@ -1,7 +1,9 @@
+name: home-assistant-av-access-dev
+
 services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
-    container_name: av-access-ha-dev
+    container_name: home-assistant
     restart: unless-stopped
     environment:
       - TZ=Europe/Berlin
