@@ -11,13 +11,12 @@ from . import AVAccessConfigEntry
 from .const import (
     EDID_OPTION_BY_VALUE,
     EDID_VALUE_BY_OPTION,
-    INPUT_OPTION_BY_VALUE,
-    INPUT_VALUE_BY_OPTION,
     TRANSLATION_KEY_INPUT_EDID,
     TRANSLATION_KEY_OUTPUT_INPUT,
 )
 from .coordinator import AVAccessCoordinator
 from .entity import AVAccessEntity
+from .labels import input_options, values_by_option
 
 # The coordinator handles all data updates, so the entities do not need to be
 # updated in parallel.
@@ -67,11 +66,15 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
 
         self._output = output
 
-        self._attr_options = [
-            INPUT_OPTION_BY_VALUE[number]
-            for number in range(1, coordinator.device_info.input_count + 1)
-            if number in INPUT_OPTION_BY_VALUE
-        ]
+        options = input_options(
+            coordinator.config_entry.options,
+            coordinator.device_info.input_count,
+        )
+
+        self._option_by_value = options
+        self._value_by_option = values_by_option(options)
+
+        self._attr_options = list(options.values())
         self._attr_translation_placeholders = {"output": str(output)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_input"
@@ -85,11 +88,11 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         if value is None:
             return None
 
-        return INPUT_OPTION_BY_VALUE.get(value)
+        return self._option_by_value.get(value)
 
     async def async_select_option(self, option: str) -> None:
         """Select an HDMI input."""
-        input_number = INPUT_VALUE_BY_OPTION.get(option)
+        input_number = self._value_by_option.get(option)
 
         if input_number is None:
             raise ServiceValidationError(f"Unsupported input option: {option}")
@@ -106,6 +109,7 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     """Select the EDID for a matrix input."""
 
     _attr_translation_key = TRANSLATION_KEY_INPUT_EDID
+    # The EDID options are named by the matrix itself and are not renameable.
     _attr_options = list(EDID_OPTION_BY_VALUE.values())
 
     def __init__(

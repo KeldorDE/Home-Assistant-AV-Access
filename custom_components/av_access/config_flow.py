@@ -9,7 +9,8 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
@@ -17,7 +18,22 @@ from .api import (
     AVAccessApiError,
     AVAccessDeviceInfo,
 )
-from .const import DEFAULT_NAME, DEFAULT_PORT, DOMAIN
+from .const import (
+    CONF_INPUT_LABELS,
+    CONF_OUTPUT_LABELS,
+    DEFAULT_INPUT_COUNT,
+    DEFAULT_NAME,
+    DEFAULT_OUTPUT_COUNT,
+    DEFAULT_PORT,
+    DOMAIN,
+)
+from .labels import (
+    has_duplicates,
+    input_label_key,
+    input_options,
+    output_label_key,
+    stored_labels,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,10 +65,53 @@ async def validate_input(
     return await client.get_device_info()
 
 
+def _labels_schema(keys: list[str], stored: dict[str, str]) -> vol.Schema:
+    """Return a schema with one optional text field per port."""
+
+    return vol.Schema(
+        {
+            vol.Optional(
+                key,
+                description={"suggested_value": stored.get(key, "")},
+            ): str
+            for key in keys
+        }
+    )
+
+
+def _merge_labels(
+    stored: dict[str, str],
+    user_input: dict[str, Any],
+    keys: list[str],
+) -> dict[str, str]:
+    """Apply the submitted names, keeping names of ports not shown in the form."""
+
+    merged = dict(stored)
+
+    for key in keys:
+        value = user_input.get(key)
+        name = value.strip() if isinstance(value, str) else ""
+
+        if name:
+            merged[key] = name
+        else:
+            merged.pop(key, None)
+
+    return merged
+
+
 class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for AV Access HDMI Matrix."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> AVAccessOptionsFlow:
+        """Return the options flow that names the ports."""
+        return AVAccessOptionsFlow()
 
     async def _async_validate(
         self,
@@ -141,6 +200,77 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=self.add_suggested_values_to_schema(
                 STEP_DATA_SCHEMA,
                 reconfigure_entry.data,
+            ),
+            errors=errors,
+        )
+
+
+class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
+    """Let the user name the inputs and outputs of the matrix."""
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle the port naming step."""
+
+        entry = self.config_entry
+
+        # The port counts are only known once the controller has been queried.
+        runtime_data = getattr(entry, "runtime_data", None)
+
+        if runtime_data is None:
+            input_count = DEFAULT_INPUT_COUNT
+            output_count = DEFAULT_OUTPUT_COUNT
+        else:
+            input_count = runtime_data.device_info.input_count
+            output_count = runtime_data.device_info.output_count
+
+        input_keys = [input_label_key(number) for number in range(1, input_count + 1)]
+        output_keys = [
+            output_label_key(number) for number in range(1, output_count + 1)
+        ]
+
+        stored_inputs = stored_labels(entry.options, CONF_INPUT_LABELS)
+        stored_outputs = stored_labels(entry.options, CONF_OUTPUT_LABELS)
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            options = {
+                CONF_INPUT_LABELS: _merge_labels(
+                    stored_inputs,
+                    user_input.get(CONF_INPUT_LABELS, {}),
+                    input_keys,
+                ),
+                CONF_OUTPUT_LABELS: _merge_labels(
+                    stored_outputs,
+                    user_input.get(CONF_OUTPUT_LABELS, {}),
+                    output_keys,
+                ),
+            }
+
+            # Two inputs sharing an option would make a selection ambiguous.
+            if has_duplicates(input_options(options, input_count)):
+                errors["base"] = "duplicate_labels"
+
+            else:
+                return self.async_create_entry(data=options)
+
+            stored_inputs = options[CONF_INPUT_LABELS]
+            stored_outputs = options[CONF_OUTPUT_LABELS]
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_INPUT_LABELS): section(
+                        _labels_schema(input_keys, stored_inputs),
+                    ),
+                    vol.Required(CONF_OUTPUT_LABELS): section(
+                        _labels_schema(output_keys, stored_outputs),
+                    ),
+                }
             ),
             errors=errors,
         )

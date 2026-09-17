@@ -4,6 +4,14 @@ from __future__ import annotations
 
 DOMAIN = "av_access"
 
+# Option keys holding the user defined names of the ports.
+CONF_INPUT_LABELS = "input_labels"
+CONF_OUTPUT_LABELS = "output_labels"
+
+# Shown by the name sensors while a port has no user defined name.
+DEFAULT_INPUT_NAME = "HDMI {number}"
+DEFAULT_OUTPUT_NAME = "Output {number}"
+
 DEFAULT_PORT = 62225
 DEFAULT_NAME = "AV Access"
 
@@ -17,18 +25,8 @@ DEFAULT_OUTPUT_COUNT = 4
 # defined in the files in the translations directory.
 TRANSLATION_KEY_OUTPUT_INPUT = "output_input"
 TRANSLATION_KEY_INPUT_EDID = "input_edid"
-
-# The API expects and reports the input as a number.
-INPUT_OPTION_BY_VALUE: dict[int, str] = {
-    1: "hdmi_1",
-    2: "hdmi_2",
-    3: "hdmi_3",
-    4: "hdmi_4",
-}
-
-INPUT_VALUE_BY_OPTION: dict[str, int] = {
-    option: value for value, option in INPUT_OPTION_BY_VALUE.items()
-}
+TRANSLATION_KEY_INPUT_NAME = "input_name"
+TRANSLATION_KEY_OUTPUT_NAME = "output_name"
 
 # The API expects and reports the EDID as a number.
 EDID_OPTION_BY_VALUE: dict[int, str] = {

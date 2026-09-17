@@ -52,13 +52,65 @@
                 }
             },
             "output_input": {
-                "name": "Ausgang {output} Eingang",
-                "state": {
+                "name": "Ausgang {output} Eingang",                "state": {
                     "hdmi_1": "HDMI 1",
                     "hdmi_2": "HDMI 2",
                     "hdmi_3": "HDMI 3",
-                    "hdmi_4": "HDMI 4"
+                    "hdmi_4": "HDMI 4",
+                    "hdmi_5": "HDMI 5",
+                    "hdmi_6": "HDMI 6",
+                    "hdmi_7": "HDMI 7",
+                    "hdmi_8": "HDMI 8"
                 }
+            }
+        },
+        "sensor": {
+            "input_name": {
+                "name": "Eingang {input} Name"
+            },
+            "output_name": {
+                "name": "Ausgang {output} Name"
+            }
+        }
+    },
+    "options": {
+        "error": {
+            "duplicate_labels": "Jeder Name darf nur einmal vergeben werden. Bitte prüfe die eingegebenen Namen."
+        },
+        "step": {
+            "init": {
+                "description": "Vergib eigene Namen für die Anschlüsse. Leere Felder behalten die Standardbezeichnung.",
+                "sections": {
+                    "input_labels": {
+                        "data": {
+                            "input_1": "Eingang 1",
+                            "input_2": "Eingang 2",
+                            "input_3": "Eingang 3",
+                            "input_4": "Eingang 4",
+                            "input_5": "Eingang 5",
+                            "input_6": "Eingang 6",
+                            "input_7": "Eingang 7",
+                            "input_8": "Eingang 8"
+                        },
+                        "description": "Diese Namen ersetzen \"HDMI 1\" usw. bei der Auswahl des Eingangs eines Ausgangs und stehen als Sensor zur Verfügung.",
+                        "name": "Eingänge"
+                    },
+                    "output_labels": {
+                        "data": {
+                            "output_1": "Ausgang 1",
+                            "output_2": "Ausgang 2",
+                            "output_3": "Ausgang 3",
+                            "output_4": "Ausgang 4",
+                            "output_5": "Ausgang 5",
+                            "output_6": "Ausgang 6",
+                            "output_7": "Ausgang 7",
+                            "output_8": "Ausgang 8"
+                        },
+                        "description": "Diese Namen stehen als Sensor zur Verfügung, zum Beispiel als Überschrift im Dashboard.",
+                        "name": "Ausgänge"
+                    }
+                },
+                "title": "Anschlüsse benennen"
             }
         }
     }
