@@ -27,6 +27,7 @@ TRANSLATION_KEY_OUTPUT_INPUT = "output_input"
 TRANSLATION_KEY_INPUT_EDID = "input_edid"
 TRANSLATION_KEY_INPUT_NAME = "input_name"
 TRANSLATION_KEY_OUTPUT_NAME = "output_name"
+TRANSLATION_KEY_OUTPUT_INPUT_NUMBER = "output_input_number"
 
 # The API expects and reports the EDID as a number.
 EDID_OPTION_BY_VALUE: dict[int, str] = {

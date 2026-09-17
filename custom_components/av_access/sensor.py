@@ -7,11 +7,16 @@ the select of an output.
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import AVAccessConfigEntry
-from .const import TRANSLATION_KEY_INPUT_NAME, TRANSLATION_KEY_OUTPUT_NAME
+from .const import (
+    TRANSLATION_KEY_INPUT_NAME,
+    TRANSLATION_KEY_OUTPUT_INPUT_NUMBER,
+    TRANSLATION_KEY_OUTPUT_NAME,
+)
 from .coordinator import AVAccessCoordinator
 from .entity import AVAccessEntity
 from .labels import input_name, output_name
@@ -39,6 +44,14 @@ async def async_setup_entry(
 
     entities.extend(
         AVAccessOutputNameSensor(
+            coordinator=coordinator,
+            output=output,
+        )
+        for output in range(1, device.output_count + 1)
+    )
+
+    entities.extend(
+        AVAccessOutputInputNumberSensor(
             coordinator=coordinator,
             output=output,
         )
@@ -92,3 +105,34 @@ class AVAccessOutputNameSensor(AVAccessEntity, SensorEntity):
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_name"
         )
+
+
+class AVAccessOutputInputNumberSensor(AVAccessEntity, SensorEntity):
+    """Expose the number of the input currently routed to an output.
+
+    The select of an output reports the name of the input, so this sensor
+    provides the raw number that an automation or a template can work with.
+    """
+
+    _attr_translation_key = TRANSLATION_KEY_OUTPUT_INPUT_NUMBER
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: AVAccessCoordinator,
+        output: int,
+    ) -> None:
+        """Initialize the input number sensor."""
+        super().__init__(coordinator)
+
+        self._output = output
+
+        self._attr_translation_placeholders = {"output": str(output)}
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_output_{output}_input_number"
+        )
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the number of the routed input."""
+        return self.coordinator.data["outputs"].get(str(self._output))

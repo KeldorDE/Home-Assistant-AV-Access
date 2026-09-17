@@ -68,6 +68,9 @@
             "input_name": {
                 "name": "Eingang {input} Name"
             },
+            "output_input_number": {
+                "name": "Ausgang {output} Eingangsnummer"
+            },
             "output_name": {
                 "name": "Ausgang {output} Name"
             }

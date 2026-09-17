@@ -92,6 +92,20 @@ The EDID options are named by the matrix itself and are therefore not
 renameable. Port names only change the options of a select. To rename an entity
 itself, use the entity settings in Home Assistant.
 
+## Templates
+
+Every output provides a diagnostic sensor with the number of the input that is
+currently routed to it. It is the raw counterpart of the select, which reports
+the name of the input.
+
+Combined with `state_translated`, the EDID that currently applies to an output
+can be resolved without a helper entity:
+
+```jinja
+{% set input = states('sensor.av_access_output_1_input_number') %}
+{{ state_translated('select.av_access_input_' ~ input ~ '_edid') }}
+```
+
 ## Diagnostics
 
 Device information and the current routing state can be downloaded through
