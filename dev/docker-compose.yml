@@ -1,0 +1,12 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: av-access-ha-dev
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Berlin
+    ports:
+      - "8124:8123"
+    volumes:
+      - ./config:/config
+      - ../custom_components/av_access_hdmi_matrix:/config/custom_components/av_access_hdmi_matrix:ro
