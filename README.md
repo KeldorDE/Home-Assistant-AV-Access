@@ -8,6 +8,7 @@ The integration provides native Home Assistant entities for controlling HDMI rou
 
 * HDMI input selection for each output
 * EDID selection and management
+* HDCP support toggle for each input
 * Custom names for inputs and outputs, also available as sensors
 * Native Home Assistant entities
 * Configuration through the Home Assistant UI
@@ -91,6 +92,12 @@ report `HDMI 1` or `Output 1`.
 The EDID options are named by the matrix itself and are therefore not
 renameable. Port names only change the options of a select. To rename an entity
 itself, use the entity settings in Home Assistant.
+
+### HDCP
+
+Each input provides a switch that enables or disables HDCP support. The
+switches are only created if the matrix reports its HDCP state, so a model
+without HDCP commands simply has no HDCP entities.
 
 ## Templates
 

@@ -74,6 +74,11 @@
             "output_name": {
                 "name": "Ausgang {output} Name"
             }
+        },
+        "switch": {
+            "input_hdcp": {
+                "name": "Eingang {input} HDCP"
+            }
         }
     },
     "options": {

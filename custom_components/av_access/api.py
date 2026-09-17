@@ -14,6 +14,11 @@ from .const import DEFAULT_INPUT_COUNT, DEFAULT_OUTPUT_COUNT
 # The status payload reports one entry per output and per input.
 OUTPUT_KEY_PATTERN = re.compile(r"out(\d+)_in")
 EDID_KEY_PATTERN = re.compile(r"edid_in(\d+)")
+HDCP_KEY_PATTERN = re.compile(r"hdcp_in(\d+)")
+
+# Accepted by the controller and therefore also understood when reported.
+TRUE_VALUES = frozenset({"true", "on", "enable", "yes", "1"})
+FALSE_VALUES = frozenset({"false", "off", "disable", "no", "0"})
 
 
 class AVAccessStatus(TypedDict):
@@ -21,6 +26,7 @@ class AVAccessStatus(TypedDict):
 
     outputs: dict[str, int]
     edid: dict[str, int]
+    hdcp: dict[str, bool]
 
 
 class AVAccessApiError(Exception):
@@ -47,6 +53,26 @@ def _as_count(value: Any, default: int) -> int:
         return default
 
     return count if count > 0 else default
+
+
+def _as_bool(value: Any) -> bool:
+    """Return a boolean from the formats the controller accepts."""
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+
+        if normalized in TRUE_VALUES:
+            return True
+
+        if normalized in FALSE_VALUES:
+            return False
+
+    raise ValueError(f"Unexpected HDCP value: {value!r}")
 
 
 def _as_datetime(value: Any) -> datetime | None:
@@ -142,9 +168,11 @@ class AVAccessApiClient:
 
         outputs: dict[str, int] = {}
         edid: dict[str, int] = {}
+        hdcp: dict[str, bool] = {}
 
         # The number of ports depends on the model, so every reported entry is
-        # taken as it comes instead of expecting a fixed range.
+        # taken as it comes instead of expecting a fixed range. A matrix without
+        # HDCP support reports no HDCP entries at all.
         try:
             for key, value in data.items():
                 if match := OUTPUT_KEY_PATTERN.fullmatch(key):
@@ -153,12 +181,16 @@ class AVAccessApiClient:
                 elif match := EDID_KEY_PATTERN.fullmatch(key):
                     edid[match.group(1)] = int(value)
 
+                elif match := HDCP_KEY_PATTERN.fullmatch(key):
+                    hdcp[match.group(1)] = _as_bool(value)
+
         except (TypeError, ValueError) as err:
             raise AVAccessApiError(f"Unexpected status payload: {data}") from err
 
         return {
             "outputs": outputs,
             "edid": edid,
+            "hdcp": hdcp,
         }
 
     async def set_output(
@@ -188,6 +220,21 @@ class AVAccessApiClient:
             json={
                 "input": input_number,
                 "edid": edid,
+            },
+        )
+
+    async def set_hdcp(
+        self,
+        input_number: int,
+        enabled: bool,
+    ) -> None:
+        """Enable or disable HDCP support for an HDMI input."""
+        await self._request(
+            "POST",
+            "/switch/hdcp",
+            json={
+                "input": input_number,
+                "hdcp": enabled,
             },
         )
 

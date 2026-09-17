@@ -25,6 +25,7 @@ DEFAULT_OUTPUT_COUNT = 4
 # defined in the files in the translations directory.
 TRANSLATION_KEY_OUTPUT_INPUT = "output_input"
 TRANSLATION_KEY_INPUT_EDID = "input_edid"
+TRANSLATION_KEY_INPUT_HDCP = "input_hdcp"
 TRANSLATION_KEY_INPUT_NAME = "input_name"
 TRANSLATION_KEY_OUTPUT_NAME = "output_name"
 TRANSLATION_KEY_OUTPUT_INPUT_NUMBER = "output_input_number"

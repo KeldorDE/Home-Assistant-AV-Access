@@ -15,6 +15,7 @@ from .coordinator import AVAccessCoordinator
 PLATFORMS: list[Platform] = [
     Platform.SELECT,
     Platform.SENSOR,
+    Platform.SWITCH,
 ]
 
 
