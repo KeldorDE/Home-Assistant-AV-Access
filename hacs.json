@@ -1,4 +1,5 @@
 {
-  "name": "AV Access HDMI-Matrix",
-  "render_readme": true
+    "name": "AV Access",
+    "homeassistant": "2025.2.0",
+    "render_readme": true
 }
