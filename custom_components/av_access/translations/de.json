@@ -2,13 +2,22 @@
     "config": {
         "abort": {
             "already_configured": "Dieser AV Access HDMI-Matrix Controller ist bereits konfiguriert.",
-            "already_in_progress": "Die Einrichtung dieses AV Access HDMI-Matrix Controllers läuft bereits."
+            "already_in_progress": "Die Einrichtung dieses AV Access HDMI-Matrix Controllers läuft bereits.",
+            "reconfigure_successful": "Der AV Access HDMI-Matrix Controller wurde erfolgreich neu konfiguriert."
         },
         "error": {
             "cannot_connect": "Verbindung zum AV Access HDMI-Matrix Controller fehlgeschlagen.",
             "unknown": "Unerwarteter Fehler."
         },
         "step": {
+            "reconfigure": {
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                },
+                "description": "Verbindungsdaten des AV Access HDMI-Matrix Controllers aktualisieren.",
+                "title": "AV Access HDMI-Matrix"
+            },
             "user": {
                 "data": {
                     "host": "Host",
