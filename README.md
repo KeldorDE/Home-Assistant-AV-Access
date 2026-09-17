@@ -54,12 +54,25 @@ automation that triggered it.
 
 ### HACS
 
-1. Open HACS in Home Assistant.
-2. Go to **Integrations**.
-3. Open the menu in the top-right corner and select **Custom repositories**.
-4. Add this repository as an **Integration**.
-5. Search for **AV Access** and install it.
-6. Restart Home Assistant.
+This integration is not part of the HACS default store, so the repository has to
+be added as a custom repository once. [HACS](https://hacs.xyz) has to be
+installed in Home Assistant beforehand.
+
+1. Open **HACS** in the sidebar of Home Assistant.
+2. Open the menu in the top-right corner (⋮) and select **Custom repositories**.
+3. Paste the repository URL into the **Repository** field:
+
+   ```text
+   https://github.com/KeldorDE/Home-Assistant-AV-Access.git
+   ```
+
+4. Select **Integration** as the **Type** and confirm with **Add**.
+5. Close the dialog, search for **AV Access** in HACS and open the repository.
+6. Select **Download** and confirm the version that is offered.
+7. Restart Home Assistant.
+
+The repository stays in the list, so updates are offered by HACS like for any
+other integration.
 
 After restarting Home Assistant, go to:
 
