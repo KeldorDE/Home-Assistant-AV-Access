@@ -18,3 +18,9 @@ hore .env
 *.iml
 *.iws
 *.ipr
+
+dev/config/.storage/
+dev/config/.cloud/
+dev/config/home-assistant_v2.db*
+dev/config/home-assistant.log*
+dev/config/secrets.yaml
