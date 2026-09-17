@@ -1,38 +1,66 @@
 {
     "config": {
         "abort": {
-            "already_configured": "This AV Access HDMI Matrix Controller is already configured.",
-            "already_in_progress": "Configuration for this AV Access HDMI Matrix Controller is already in progress.",
-            "reconfigure_successful": "The AV Access HDMI-Matrix Controller was reconfigured successfully.",
+            "already_configured": "This AV Access HDMI matrix is already configured.",
+            "already_in_progress": "Configuration for this AV Access HDMI matrix is already in progress.",
+            "reconfigure_successful": "The AV Access HDMI matrix was reconfigured successfully.",
             "wrong_device": "The configured address belongs to a different HDMI matrix."
         },
         "error": {
-            "cannot_connect": "Failed to connect to the AV Access HDMI-Matrix Controller.",
+            "cannot_connect": "Failed to connect to the AV Access HDMI matrix.",
             "unknown": "Unexpected error."
         },
         "step": {
             "reconfigure": {
                 "data": {
                     "host": "Host",
-                    "port": "Port"
+                    "port": "Port",
+                    "scan_interval": "Polling interval"
                 },
-                "description": "Update the connection details of your AV Access HDMI-Matrix Controller.",
-                "title": "AV Access HDMI-Matrix"
+                "data_description": {
+                    "scan_interval": "Number of seconds between queries to the matrix. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant."
+                },
+                "description": "Update the connection details of your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
+                "title": "AV Access HDMI matrix"
             },
             "user": {
                 "data": {
                     "host": "Host",
-                    "port": "Port"
+                    "port": "Port",
+                    "scan_interval": "Polling interval"
                 },
-                "description": "Connect to your AV Access HDMI-Matrix Controller.",
-                "title": "AV Access HDMI-Matrix"
+                "data_description": {
+                    "scan_interval": "Number of seconds between queries to the matrix. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant."
+                },
+                "description": "Connect to your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
+                "title": "AV Access HDMI matrix"
             }
         }
     },
     "entity": {
         "select": {
             "input_edid": {
-                "name": "Input {input} EDID",
+                "name": "EDID - Input {input}",
+                "state": {
+                    "1080p60_2_0ch": "1080P@60Hz 2.0ch audio",
+                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch audio With HDR",
+                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch audio With HDR",
+                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch audio With HDR",
+                    "4k30_8bit_2_0ch": "4K@30Hz/8bit only 2.0ch audio Without HDR",
+                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch audio With HDR",
+                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch audio With HDR",
+                    "5k_super_widescreen_2ch": "5K Super Wide_2CH",
+                    "5k_ultra_widescreen_2ch": "5K Ultra Wide_2CH",
+                    "copy_from_output_1": "Copy from output 1",
+                    "copy_from_output_2": "Copy from output 2",
+                    "copy_from_output_3": "Copy from output 3",
+                    "copy_from_output_4": "Copy from output 4",
+                    "smart_edid": "Smart EDID",
+                    "write_edid": "EDID Write"
+                }
+            },
+            "input_edid_named": {
+                "name": "EDID - Input {input} - {name}",
                 "state": {
                     "1080p60_2_0ch": "1080P@60Hz 2.0ch audio",
                     "4k30_2_0ch_hdr": "4K@30Hz 2.0ch audio With HDR",
@@ -52,7 +80,20 @@
                 }
             },
             "output_input": {
-                "name": "Output {output} input",
+                "name": "Output {output}",
+                "state": {
+                    "hdmi_1": "HDMI 1",
+                    "hdmi_2": "HDMI 2",
+                    "hdmi_3": "HDMI 3",
+                    "hdmi_4": "HDMI 4",
+                    "hdmi_5": "HDMI 5",
+                    "hdmi_6": "HDMI 6",
+                    "hdmi_7": "HDMI 7",
+                    "hdmi_8": "HDMI 8"
+                }
+            },
+            "output_input_named": {
+                "name": "Output {output} - {name}",
                 "state": {
                     "hdmi_1": "HDMI 1",
                     "hdmi_2": "HDMI 2",
@@ -78,7 +119,10 @@
         },
         "switch": {
             "input_hdcp": {
-                "name": "Input {input} HDCP"
+                "name": "HDCP Input {input}"
+            },
+            "input_hdcp_named": {
+                "name": "HDCP Input {input} - {name}"
             }
         }
     },
@@ -101,7 +145,7 @@
                             "input_7": "Input 7",
                             "input_8": "Input 8"
                         },
-                        "description": "These names replace \"HDMI 1\" and so on when you select the input of an output, and are available as a sensor.",
+                        "description": "These names replace \"HDMI 1\" and so on when you select the input of an output, are added to the name of the EDID and HDCP entities of the input and are available as a sensor.",
                         "name": "Inputs"
                     },
                     "output_labels": {
@@ -115,7 +159,7 @@
                             "output_7": "Output 7",
                             "output_8": "Output 8"
                         },
-                        "description": "These names are available as a sensor, for example as a heading in a dashboard.",
+                        "description": "These names are added to the name of the output and are available as a sensor, for example as a heading in a dashboard.",
                         "name": "Outputs"
                     }
                 },

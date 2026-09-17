@@ -8,15 +8,19 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 
-from .api import (
-    AVAccessApiClient,
-    AVAccessApiError,
+from .client import (
+    AVAccessClient,
     AVAccessDeviceInfo,
+    AVAccessError,
 )
 from .const import (
     CONF_INPUT_LABELS,
@@ -25,7 +29,10 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_OUTPUT_COUNT,
     DEFAULT_PORT,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
 )
 from .labels import (
     has_duplicates,
@@ -44,25 +51,34 @@ STEP_DATA_SCHEMA = vol.Schema(
             CONF_PORT,
             default=DEFAULT_PORT,
         ): int,
+        vol.Required(
+            CONF_SCAN_INTERVAL,
+            default=DEFAULT_SCAN_INTERVAL,
+        ): vol.All(
+            NumberSelector(
+                NumberSelectorConfig(
+                    min=MIN_SCAN_INTERVAL,
+                    max=MAX_SCAN_INTERVAL,
+                    step=1,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="s",
+                )
+            ),
+            vol.Coerce(int),
+        ),
     }
 )
 
 
-async def validate_input(
-    hass: HomeAssistant,
-    data: dict[str, Any],
-) -> AVAccessDeviceInfo:
-    """Validate that the controller can be reached and identify the matrix."""
+async def validate_input(data: dict[str, Any]) -> AVAccessDeviceInfo:
+    """Validate that the matrix can be reached and identify it."""
 
-    session = async_get_clientsession(hass)
-
-    client = AVAccessApiClient(
+    client = AVAccessClient(
         host=data[CONF_HOST],
         port=data[CONF_PORT],
-        session=session,
     )
 
-    return await client.get_device_info()
+    return await client.async_get_device_info()
 
 
 def _labels_schema(keys: list[str], stored: dict[str, str]) -> vol.Schema:
@@ -122,15 +138,16 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         try:
-            device_info = await validate_input(self.hass, user_input)
+            device_info = await validate_input(user_input)
 
-        except AVAccessApiError:
-            # AVAccessConnectionError is a subclass and handled the same way.
+        except AVAccessError:
+            # A matrix that answers with something unexpected is just as
+            # unusable as one that cannot be reached at all.
             errors["base"] = "cannot_connect"
 
         except Exception:
             _LOGGER.exception(
-                "Unexpected error while connecting to AV Access HDMI Matrix Controller"
+                "Unexpected error while connecting to the AV Access HDMI matrix"
             )
             errors["base"] = "unknown"
 
@@ -173,7 +190,7 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Handle reconfiguration of an existing controller."""
+        """Handle reconfiguration of an existing matrix."""
 
         reconfigure_entry = self._get_reconfigure_entry()
 
@@ -192,7 +209,7 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
-                    data_updates=user_input,
+                    data=user_input,
                 )
 
         return self.async_show_form(
@@ -216,7 +233,7 @@ class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
 
         entry = self.config_entry
 
-        # The port counts are only known once the controller has been queried.
+        # The port counts are only known once the matrix has been queried.
         runtime_data = getattr(entry, "runtime_data", None)
 
         if runtime_data is None:

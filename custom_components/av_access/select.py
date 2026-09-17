@@ -1,4 +1,4 @@
-"""Select platform for the AV Access HDMI-Matrix integration."""
+"""Select platform for the AV Access HDMI matrix integration."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ async def async_setup_entry(
     entry: AVAccessConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up AV Access HDMI-Matrix select entities."""
+    """Set up AV Access HDMI matrix select entities."""
     coordinator = entry.runtime_data
     device = coordinator.device_info
 
@@ -55,6 +55,7 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
     """Select the HDMI input for a matrix output."""
 
     _attr_translation_key = TRANSLATION_KEY_OUTPUT_INPUT
+    _reports_external_change = True
 
     def __init__(
         self,
@@ -75,10 +76,11 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         self._value_by_option = values_by_option(options)
 
         self._attr_options = list(options.values())
-        self._attr_translation_placeholders = {"output": str(output)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_input"
         )
+
+        self._name_after_output(output)
 
     @property
     def current_option(self) -> str | None:
@@ -97,18 +99,17 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         if input_number is None:
             raise ServiceValidationError(f"Unsupported input option: {option}")
 
-        await self.coordinator.client.set_output(
+        await self.coordinator.async_set_output(
             self._output,
             input_number,
         )
-
-        await self.coordinator.async_refresh_after_command()
 
 
 class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     """Select the EDID for a matrix input."""
 
     _attr_translation_key = TRANSLATION_KEY_INPUT_EDID
+    _reports_external_change = True
     # The EDID options are named by the matrix itself and are not renameable.
     _attr_options = list(EDID_OPTION_BY_VALUE.values())
 
@@ -122,10 +123,11 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
 
         self._input = input_number
 
-        self._attr_translation_placeholders = {"input": str(input_number)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_input_{input_number}_edid"
         )
+
+        self._name_after_input(input_number)
 
     @property
     def current_option(self) -> str | None:
@@ -144,9 +146,7 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
         if edid is None:
             raise ServiceValidationError(f"Unsupported EDID option: {option}")
 
-        await self.coordinator.client.set_edid(
+        await self.coordinator.async_set_edid(
             self._input,
             edid,
         )
-
-        await self.coordinator.async_refresh_after_command()

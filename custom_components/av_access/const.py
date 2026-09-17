@@ -4,6 +4,11 @@ from __future__ import annotations
 
 DOMAIN = "av_access"
 
+# Fired when a poll finds a state the matrix changed without a command from
+# Home Assistant, so the logbook can name the front panel or the remote control
+# as the origin of the state change.
+EVENT_EXTERNAL_CHANGE = "av_access_external_change"
+
 # Option keys holding the user defined names of the ports.
 CONF_INPUT_LABELS = "input_labels"
 CONF_OUTPUT_LABELS = "output_labels"
@@ -12,23 +17,29 @@ CONF_OUTPUT_LABELS = "output_labels"
 DEFAULT_INPUT_NAME = "HDMI {number}"
 DEFAULT_OUTPUT_NAME = "Output {number}"
 
-DEFAULT_PORT = 62225
+# Telnet port of the matrix.
+DEFAULT_PORT = 23
 DEFAULT_NAME = "AV Access"
 
-UPDATE_INTERVAL = 5
+MANUFACTURER = "AV Access"
 
-# The controller sends an SSE comment in this interval to keep the connection
-# alive. A healthy stream therefore never stays silent for longer than this.
-SSE_KEEPALIVE_INTERVAL = 30
+# Seconds between two polls. The routing is read on every poll, EDID and HDCP
+# for one input per poll. Changes made at the front panel or with the remote
+# control are only noticed by a poll, so a short interval keeps Home Assistant
+# in sync. Every command occupies the matrix for at least COMMAND_DELAY
+# seconds, which is the lower bound of a useful interval.
+DEFAULT_SCAN_INTERVAL = 3
+MIN_SCAN_INTERVAL = 1
+MAX_SCAN_INTERVAL = 300
 
-# Tolerate one missed keepalive before a stream is considered dead.
-SSE_READ_TIMEOUT = SSE_KEEPALIVE_INTERVAL * 2
+# The matrix accepts one command at a time and needs a pause afterwards.
+# Sending commands back to back has been observed to freeze the device.
+COMMAND_DELAY = 1.0
+CONNECT_TIMEOUT = 3.0
+READ_TIMEOUT = 3.0
+CLOSE_TIMEOUT = 1.0
 
-# Backoff used to reconnect to the event stream.
-SSE_RECONNECT_INTERVAL = 5
-SSE_RECONNECT_MAX_INTERVAL = 60
-
-# Used when the controller does not report the number of ports.
+# Used until the matrix reports a model the port count can be derived from.
 DEFAULT_INPUT_COUNT = 4
 DEFAULT_OUTPUT_COUNT = 4
 
@@ -41,7 +52,16 @@ TRANSLATION_KEY_INPUT_NAME = "input_name"
 TRANSLATION_KEY_OUTPUT_NAME = "output_name"
 TRANSLATION_KEY_OUTPUT_INPUT_NUMBER = "output_input_number"
 
-# The API expects and reports the EDID as a number.
+# A port with a user defined name is named after it, which needs a second
+# translation of every entity name. The keys of those only differ by a suffix.
+TRANSLATION_KEY_NAMED_SUFFIX = "_named"
+
+# Placeholders of the entity names.
+PLACEHOLDER_INPUT = "input"
+PLACEHOLDER_OUTPUT = "output"
+PLACEHOLDER_NAME = "name"
+
+# The matrix expects and reports the EDID as a number.
 EDID_OPTION_BY_VALUE: dict[int, str] = {
     1: "copy_from_output_1",
     2: "copy_from_output_2",

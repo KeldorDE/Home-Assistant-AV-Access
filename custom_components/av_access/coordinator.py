@@ -1,60 +1,57 @@
-"""Data update coordinator for the AV Access HDMI-Matrix integration."""
+"""Data update coordinator for the AV Access HDMI matrix integration."""
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 import logging
 from typing import TYPE_CHECKING
 
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
 
-from .api import (
-    AVAccessApiClient,
-    AVAccessApiError,
+from .client import (
+    AVAccessClient,
     AVAccessConnectionError,
     AVAccessDeviceInfo,
-    AVAccessEventsNotSupportedError,
+    AVAccessError,
     AVAccessStatus,
 )
-from .const import (
-    DOMAIN,
-    SSE_RECONNECT_INTERVAL,
-    SSE_RECONNECT_MAX_INTERVAL,
-    UPDATE_INTERVAL,
-)
+from .const import DEFAULT_SCAN_INTERVAL
 
 if TYPE_CHECKING:
     from . import AVAccessConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
-POLL_INTERVAL = timedelta(seconds=UPDATE_INTERVAL)
-
 
 class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
-    """Coordinate data updates from the AV Access HDMI-Matrix Controller."""
+    """Poll the state of the AV Access HDMI matrix."""
 
     config_entry: AVAccessConfigEntry
 
     def __init__(
         self,
         hass: HomeAssistant,
-        client: AVAccessApiClient,
+        client: AVAccessClient,
         config_entry: AVAccessConfigEntry,
         device_info: AVAccessDeviceInfo,
     ) -> None:
         """Initialize the coordinator."""
+        scan_interval = config_entry.data.get(
+            CONF_SCAN_INTERVAL,
+            DEFAULT_SCAN_INTERVAL,
+        )
+
         super().__init__(
             hass,
             _LOGGER,
             config_entry=config_entry,
             name="AV Access Matrix",
-            update_interval=POLL_INTERVAL,
+            update_interval=timedelta(seconds=scan_interval),
         )
 
         self.client = client
@@ -62,113 +59,129 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # The static device information is read once while setting up the entry.
         self.device_info = device_info
 
-        self._push_active = False
+        # The input whose EDID and HDCP are read during the next poll.
+        self._next_input = 1
+
+        # Set while the state a command confirmed is published, so entities can
+        # tell a change they caused from a change made at the device.
+        self._command_update = False
 
     @property
-    def push_active(self) -> bool:
-        """Return whether the state is currently received via the event stream."""
-        return self._push_active
-
-    @callback
-    def async_start_event_listener(self) -> None:
-        """Listen for state events until the config entry is unloaded."""
-        self.config_entry.async_create_background_task(
-            self.hass,
-            self._async_listen_events(),
-            name=f"{DOMAIN} event listener",
-            eager_start=True,
-        )
+    def command_update(self) -> bool:
+        """Return whether the current update belongs to a command."""
+        return self._command_update
 
     async def async_refresh_after_command(self) -> None:
-        """Refresh the state after a command, unless events are received.
-
-        The controller emits a state event right after a successful command, so
-        an extra status request is only needed while polling.
-        """
-        if self._push_active:
-            return
-
+        """Refresh the state after a command."""
         await self.async_request_refresh()
 
-    async def _async_listen_events(self) -> None:
-        """Consume the event stream and reconnect when it breaks."""
-        delay = SSE_RECONNECT_INTERVAL
+    async def async_set_output(self, output: int, input_number: int) -> None:
+        """Route an HDMI input to an output."""
+        confirmed = await self.client.async_set_output(output, input_number)
 
-        while True:
-            try:
-                async for status in self.client.subscribe_events():
-                    # The stream delivers the full state, so the first event
-                    # after (re)connecting brings the integration back in sync.
-                    self._async_set_push_active(True)
-                    delay = SSE_RECONNECT_INTERVAL
+        self._async_apply("outputs", str(output), confirmed)
 
-                    self.async_set_updated_data(status)
+        await self.async_refresh_after_command()
 
-                _LOGGER.debug("Event stream closed by the controller")
+    async def async_set_edid(self, input_number: int, edid: int) -> None:
+        """Set the EDID of an HDMI input."""
+        confirmed = await self.client.async_set_edid(input_number, edid)
 
-            except AVAccessEventsNotSupportedError:
-                # An older controller has no event stream, so polling stays the
-                # only way to receive updates.
-                _LOGGER.info(
-                    "The AV Access HDMI-Matrix Controller does not support event "
-                    "streaming, falling back to polling every %s seconds",
-                    UPDATE_INTERVAL,
-                )
-                self._async_set_push_active(False)
+        self._async_apply("edid", str(input_number), confirmed)
 
-                return
+        await self.async_refresh_after_command()
 
-            except asyncio.CancelledError:
-                # The config entry is unloading, so no rescheduling is wanted.
-                raise
+    async def async_set_hdcp(self, input_number: int, enabled: bool) -> None:
+        """Switch HDCP support of an HDMI input."""
+        confirmed = await self.client.async_set_hdcp(input_number, enabled)
 
-            except AVAccessConnectionError as err:
-                _LOGGER.debug("Event stream connection lost: %s", err)
+        self._async_apply("hdcp", str(input_number), confirmed)
 
-            except AVAccessApiError as err:
-                _LOGGER.warning("Event stream failed: %s", err)
-
-            # Polling takes over until the stream is available again.
-            if self._async_set_push_active(False):
-                # Setting the interval alone does not reschedule the timer.
-                await self.async_refresh()
-
-            await asyncio.sleep(delay)
-
-            delay = min(delay * 2, SSE_RECONNECT_MAX_INTERVAL)
+        await self.async_refresh_after_command()
 
     @callback
-    def _async_set_push_active(self, active: bool) -> bool:
-        """Enable or disable polling depending on the event stream state.
+    def _async_apply(self, section: str, port: str, value: int | bool) -> None:
+        """Publish the state the matrix confirmed for a command.
 
-        Returns whether the mode actually changed.
+        The matrix answers every command with the value it applied, so an entity
+        does not have to wait for the next poll. Only the routing is read on
+        every poll, which makes this the timely update for EDID and HDCP.
         """
-        if self._push_active == active:
-            return False
+        if self.data is None:
+            return
 
-        self._push_active = active
+        self._command_update = True
 
-        # Polling is only a fallback while no events are received.
-        self.update_interval = None if active else POLL_INTERVAL
+        try:
+            self.async_set_updated_data(
+                {
+                    **self.data,
+                    section: {**self.data[section], port: value},  # type: ignore[literal-required]
+                }
+            )
 
-        _LOGGER.debug(
-            "Receiving matrix state via %s",
-            "events" if active else "polling",
-        )
-
-        return True
+        finally:
+            self._command_update = False
 
     async def _async_update_data(self) -> AVAccessStatus:
-        """Fetch the latest matrix state."""
+        """Fetch the latest state of the matrix."""
         try:
-            return await self.client.get_status()
+            return await self._async_fetch_status()
 
         except AVAccessConnectionError as err:
             raise UpdateFailed(
-                f"Unable to connect to AV Access HDMI-Matrix Controller: {err}"
+                f"Unable to connect to the AV Access matrix: {err}"
             ) from err
 
-        except AVAccessApiError as err:
+        except AVAccessError as err:
             raise UpdateFailed(
-                f"Error communicating with AV Access HDMI-Matrix Controller: {err}"
+                f"Error communicating with the AV Access matrix: {err}"
             ) from err
+
+    async def _async_fetch_status(self) -> AVAccessStatus:
+        """Read the state, sparing the matrix the commands that rarely change.
+
+        The matrix answers one command at a time, so reading everything on every
+        poll would keep the device busy permanently. The routing is read on
+        every poll because it changes for every output at once, while EDID and
+        HDCP are read for one input per poll. Changes made at the front panel or
+        with the remote control therefore show up after one full rotation at the
+        latest.
+        """
+        if self.data is None:
+            return await self.client.async_get_status()
+
+        outputs = await self.client.async_get_routing()
+
+        edid = dict(self.data["edid"])
+        hdcp = dict(self.data["hdcp"])
+
+        input_number = self._next_input
+        input_count = max(self.device_info.input_count, 1)
+
+        if input_number > input_count:
+            input_number = 1
+
+        self._next_input = input_number % input_count + 1
+
+        port = str(input_number)
+
+        # Only ports the matrix already reported have entities, so no unknown
+        # port is queried and no entity appears after the setup.
+        if port in edid:
+            value = await self.client.async_get_input_edid(input_number)
+
+            if value is not None:
+                edid[port] = value
+
+        if port in hdcp:
+            state = await self.client.async_get_input_hdcp(input_number)
+
+            if state is not None:
+                hdcp[port] = state
+
+        return {
+            "outputs": outputs,
+            "edid": edid,
+            "hdcp": hdcp,
+        }
