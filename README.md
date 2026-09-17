@@ -47,7 +47,7 @@ and enter the address of your AV Access Matrix Controller.
 Copy the directory:
 
 ```text
-custom_components/av_access_matrix
+custom_components/av_access
 ```
 
 to:
