@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Extract changelog
+        run: |
+          awk -v version="$GITHUB_REF_NAME" '
+            $0 ~ "^## \\[" version "\\]" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [ -z "$(tr -d '[:space:]' < release-notes.md)" ]; then
+            echo "::error::No changelog section found for version $GITHUB_REF_NAME in CHANGELOG.md"
+            exit 1
+          fi
+
+      - name: Verify manifest version
+        run: |
+          manifest_version="$(jq -r .version custom_components/av_access/manifest.json)"
+
+          if [ "$GITHUB_REF_NAME" != "$manifest_version" ]; then
+            echo "::error::Tag version $GITHUB_REF_NAME does not match manifest version $manifest_version"
+            exit 1
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # A version with a pre-release part such as 1.0.0-beta.1 is published
+          # as a pre-release, so HACS keeps offering the last stable version.
+          case "$GITHUB_REF_NAME" in
+            *-*) prerelease="--prerelease" ;;
+            *) prerelease="" ;;
+          esac
+
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            $prerelease
