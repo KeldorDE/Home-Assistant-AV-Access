@@ -1,4 +1,4 @@
-hore .env
+.env
 *.log
 /.fleet
 /.idea
@@ -7,8 +7,4 @@ hore .env
 
 *.ipr
 
-dev/config/.storage/
-dev/config/.cloud/
-dev/config/home-assistant_v2.db*
-dev/config/home-assistant.log*
-dev/config/secrets.yaml
+dev/config
