@@ -1,4 +1,4 @@
-# AV Access Matrix for Home Assistant
+# AV Access for Home Assistant
 
 Custom Home Assistant integration for controlling AV Access HDMI matrix switches.
 
@@ -19,7 +19,7 @@ Currently developed and tested with:
 
 * AV Access 4KMX44-H2
 
-Support for additional AV Access matrix switches may be added in the future.
+Support for additional AV Access devices may be added in the future.
 
 ## Requirements
 
