@@ -47,6 +47,15 @@ TRANSLATION_KEY_INPUT_NAME = "input_name"
 TRANSLATION_KEY_OUTPUT_NAME = "output_name"
 TRANSLATION_KEY_OUTPUT_INPUT_NUMBER = "output_input_number"
 
+# A port with a user defined name is named after it, which needs a second
+# translation of every entity name. The keys of those only differ by a suffix.
+TRANSLATION_KEY_NAMED_SUFFIX = "_named"
+
+# Placeholders of the entity names.
+PLACEHOLDER_INPUT = "input"
+PLACEHOLDER_OUTPUT = "output"
+PLACEHOLDER_NAME = "name"
+
 # The matrix expects and reports the EDID as a number.
 EDID_OPTION_BY_VALUE: dict[int, str] = {
     1: "copy_from_output_1",

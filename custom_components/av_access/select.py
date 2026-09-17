@@ -75,10 +75,11 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         self._value_by_option = values_by_option(options)
 
         self._attr_options = list(options.values())
-        self._attr_translation_placeholders = {"output": str(output)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_input"
         )
+
+        self._name_after_output(output)
 
     @property
     def current_option(self) -> str | None:
@@ -120,10 +121,11 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
 
         self._input = input_number
 
-        self._attr_translation_placeholders = {"input": str(input_number)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_input_{input_number}_edid"
         )
+
+        self._name_after_input(input_number)
 
     @property
     def current_option(self) -> str | None:

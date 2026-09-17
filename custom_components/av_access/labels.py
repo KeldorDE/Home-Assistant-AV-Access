@@ -64,20 +64,26 @@ def values_by_option(options_by_value: Mapping[int, str]) -> dict[str, int]:
     return {option: value for value, option in options_by_value.items()}
 
 
+def input_custom_name(options: Mapping[str, Any], number: int) -> str | None:
+    """Return the user defined name of an input, if there is one."""
+    return stored_labels(options, CONF_INPUT_LABELS).get(input_label_key(number))
+
+
+def output_custom_name(options: Mapping[str, Any], number: int) -> str | None:
+    """Return the user defined name of an output, if there is one."""
+    return stored_labels(options, CONF_OUTPUT_LABELS).get(output_label_key(number))
+
+
 def input_name(options: Mapping[str, Any], number: int) -> str:
     """Return the name of an input as shown by its name sensor."""
-    names = stored_labels(options, CONF_INPUT_LABELS)
-
-    return names.get(input_label_key(number)) or DEFAULT_INPUT_NAME.format(
+    return input_custom_name(options, number) or DEFAULT_INPUT_NAME.format(
         number=number
     )
 
 
 def output_name(options: Mapping[str, Any], number: int) -> str:
     """Return the name of an output as shown by its name sensor."""
-    names = stored_labels(options, CONF_OUTPUT_LABELS)
-
-    return names.get(output_label_key(number)) or DEFAULT_OUTPUT_NAME.format(
+    return output_custom_name(options, number) or DEFAULT_OUTPUT_NAME.format(
         number=number
     )
 

@@ -101,13 +101,21 @@ An input name replaces `HDMI 1` and so on in the input selection of every
 output. Leaving a field empty restores the default name, and every input name
 must be unique.
 
+A name is also used by the entities that control the port. An output named
+`Living room` turns the select `Output 2` into `Output 2 - Living room`, and an
+input named `Apple TV` turns `EDID - Input 1` into `EDID - Input 1 - Apple TV`
+and `HDCP Input 1` into `HDCP Input 1 - Apple TV`. Ports without a name keep the
+plain name. The name sensors always keep their plain name, because they report
+the port name as their state.
+
 Every port also provides a name sensor, so a name can be used in a dashboard,
 for example as a heading above the select of an output. Ports without a name
 report `HDMI 1` or `Output 1`.
 
 The EDID options are named by the matrix itself and are therefore not
-renameable. Port names only change the options of a select. To rename an entity
-itself, use the entity settings in Home Assistant.
+renameable. Renaming a port only changes the name of its entities and the
+options of a select, not the entity ID. To change the name or the entity ID of
+a single entity, use the entity settings in Home Assistant.
 
 ### HDCP
 
