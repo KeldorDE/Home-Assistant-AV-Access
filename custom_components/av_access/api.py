@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from aiohttp import ClientError, ClientResponseError, ClientSession
+from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
+
+from .const import INPUT_COUNT, OUTPUT_COUNT
 
 
 class AVAccessApiError(Exception):
@@ -30,35 +32,49 @@ class AVAccessApiClient:
 
     async def get_status(self) -> dict[str, Any]:
         """Return the current matrix state."""
-        return await self._request(
+        data = await self._request(
             "GET",
-            "/api/status",
+            "/status",
         )
+
+        try:
+            return {
+                "outputs": {
+                    str(i): int(data[f"out{i}_in"]) for i in range(1, OUTPUT_COUNT + 1)
+                },
+                "edid": {
+                    str(i): int(data[f"edid_in{i}"]) for i in range(1, INPUT_COUNT + 1)
+                },
+            }
+        except (KeyError, TypeError, ValueError) as err:
+            raise AVAccessApiError(f"Unexpected status payload: {data}") from err
 
     async def set_output(
         self,
-        output: int,
+        output_number: int,
         input_number: int,
     ) -> None:
         """Route an HDMI input to an output."""
         await self._request(
             "POST",
-            f"/api/outputs/{output}",
+            "/switch",
             json={
                 "input": input_number,
+                "output": output_number,
             },
         )
 
     async def set_edid(
         self,
         input_number: int,
-        edid: str,
+        edid: int,
     ) -> None:
         """Set the EDID for an HDMI input."""
         await self._request(
             "POST",
-            f"/api/inputs/{input_number}/edid",
+            "/edid",
             json={
+                "input": input_number,
                 "edid": edid,
             },
         )
@@ -76,7 +92,7 @@ class AVAccessApiClient:
             async with self._session.request(
                 method,
                 url,
-                timeout=10,
+                timeout=ClientTimeout(total=10),
                 **kwargs,
             ) as response:
                 response.raise_for_status()

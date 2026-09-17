@@ -1,0 +1,55 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Dieser AV Access HDMI-Matrix Controller ist bereits konfiguriert.",
+            "already_in_progress": "Die Einrichtung dieses AV Access HDMI-Matrix Controllers läuft bereits."
+        },
+        "error": {
+            "cannot_connect": "Verbindung zum AV Access HDMI-Matrix Controller fehlgeschlagen.",
+            "unknown": "Unerwarteter Fehler."
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                },
+                "description": "Verbindung zum AV Access HDMI-Matrix Controller herstellen.",
+                "title": "AV Access HDMI-Matrix"
+            }
+        }
+    },
+    "entity": {
+        "select": {
+            "input_edid": {
+                "name": "Eingang {input} EDID",
+                "state": {
+                    "1080p60_2_0ch": "1080p@60Hz 2.0ch Audio",
+                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch Audio mit HDR",
+                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch Audio mit HDR",
+                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch Audio mit HDR",
+                    "4k30_8bit_2_0ch": "4K@30Hz/8bit nur 2.0ch Audio ohne HDR",
+                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch Audio mit HDR",
+                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch Audio mit HDR",
+                    "5k_super_widescreen_2ch": "5K Super-Breitbild (2ch)",
+                    "5k_ultra_widescreen_2ch": "5K Ultra-Breitbild (2ch)",
+                    "copy_from_output_1": "Von Ausgang 1 kopieren",
+                    "copy_from_output_2": "Von Ausgang 2 kopieren",
+                    "copy_from_output_3": "Von Ausgang 3 kopieren",
+                    "copy_from_output_4": "Von Ausgang 4 kopieren",
+                    "smart_edid": "Smart EDID",
+                    "write_edid": "EDID schreiben"
+                }
+            },
+            "output_input": {
+                "name": "Ausgang {output} Eingang",
+                "state": {
+                    "hdmi_1": "HDMI 1",
+                    "hdmi_2": "HDMI 2",
+                    "hdmi_3": "HDMI 3",
+                    "hdmi_4": "HDMI 4"
+                }
+            }
+        }
+    }
+}

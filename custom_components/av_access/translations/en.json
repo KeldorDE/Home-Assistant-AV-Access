@@ -1,0 +1,55 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "This AV Access HDMI Matrix Controller is already configured.",
+            "already_in_progress": "Configuration for this AV Access HDMI Matrix Controller is already in progress."
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to the AV Access HDMI-Matrix Controller.",
+            "unknown": "Unexpected error."
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                },
+                "description": "Connect to your AV Access HDMI-Matrix Controller.",
+                "title": "AV Access HDMI-Matrix"
+            }
+        }
+    },
+    "entity": {
+        "select": {
+            "input_edid": {
+                "name": "Input {input} EDID",
+                "state": {
+                    "1080p60_2_0ch": "1080P@60Hz 2.0ch audio",
+                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch audio With HDR",
+                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch audio With HDR",
+                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch audio With HDR",
+                    "4k30_8bit_2_0ch": "4K@30Hz/8bit only 2.0ch audio Without HDR",
+                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch audio With HDR",
+                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch audio With HDR",
+                    "5k_super_widescreen_2ch": "5K Super Wide_2CH",
+                    "5k_ultra_widescreen_2ch": "5K Ultra Wide_2CH",
+                    "copy_from_output_1": "Copy from output 1",
+                    "copy_from_output_2": "Copy from output 2",
+                    "copy_from_output_3": "Copy from output 3",
+                    "copy_from_output_4": "Copy from output 4",
+                    "smart_edid": "Smart EDID",
+                    "write_edid": "EDID Write"
+                }
+            },
+            "output_input": {
+                "name": "Output {output} input",
+                "state": {
+                    "hdmi_1": "HDMI 1",
+                    "hdmi_2": "HDMI 2",
+                    "hdmi_3": "HDMI 3",
+                    "hdmi_4": "HDMI 4"
+                }
+            }
+        }
+    }
+}

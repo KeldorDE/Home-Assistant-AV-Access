@@ -1,26 +1,23 @@
 """Select platform for the AV Access HDMI-Matrix integration."""
 
+from __future__ import annotations
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import AVAccessConfigEntry
+from .const import (
+    EDID_OPTION_BY_VALUE,
+    EDID_VALUE_BY_OPTION,
+    INPUT_OPTION_BY_VALUE,
+    INPUT_VALUE_BY_OPTION,
+    TRANSLATION_KEY_INPUT_EDID,
+    TRANSLATION_KEY_OUTPUT_INPUT,
+)
 from .coordinator import AVAccessCoordinator
 from .entity import AVAccessEntity
-
-INPUT_OPTIONS = [
-    "HDMI 1",
-    "HDMI 2",
-    "HDMI 3",
-    "HDMI 4",
-]
-
-EDID_OPTIONS = [
-    "Copy from Output 1",
-    "Copy from Output 2",
-    "Copy from Output 3",
-    "Copy from Output 4",
-]
 
 
 async def async_setup_entry(
@@ -55,7 +52,8 @@ async def async_setup_entry(
 class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
     """Select the HDMI input for a matrix output."""
 
-    _attr_options = INPUT_OPTIONS
+    _attr_translation_key = TRANSLATION_KEY_OUTPUT_INPUT
+    _attr_options = list(INPUT_OPTION_BY_VALUE.values())
 
     def __init__(
         self,
@@ -67,7 +65,7 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
 
         self._output = output
 
-        self._attr_name = f"Output {output} Input"
+        self._attr_translation_placeholders = {"output": str(output)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_input"
         )
@@ -80,11 +78,17 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         if value is None:
             return None
 
-        return f"HDMI {value}"
+        try:
+            return INPUT_OPTION_BY_VALUE.get(int(value))
+        except (TypeError, ValueError):
+            return None
 
     async def async_select_option(self, option: str) -> None:
         """Select an HDMI input."""
-        input_number = int(option.removeprefix("HDMI "))
+        input_number = INPUT_VALUE_BY_OPTION.get(option)
+
+        if input_number is None:
+            raise ServiceValidationError(f"Unsupported input option: {option}")
 
         await self.coordinator.client.set_output(
             self._output,
@@ -97,7 +101,8 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
 class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     """Select the EDID for a matrix input."""
 
-    _attr_options = EDID_OPTIONS
+    _attr_translation_key = TRANSLATION_KEY_INPUT_EDID
+    _attr_options = list(EDID_OPTION_BY_VALUE.values())
 
     def __init__(
         self,
@@ -109,7 +114,7 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
 
         self._input = input_number
 
-        self._attr_name = f"Input {input_number} EDID"
+        self._attr_translation_placeholders = {"input": str(input_number)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_input_{input_number}_edid"
         )
@@ -117,13 +122,26 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         """Return the currently selected EDID."""
-        return self.coordinator.data.get("edid", {}).get(str(self._input))
+        value = self.coordinator.data.get("edid", {}).get(str(self._input))
+
+        if value is None:
+            return None
+
+        try:
+            return EDID_OPTION_BY_VALUE.get(int(value))
+        except (TypeError, ValueError):
+            return None
 
     async def async_select_option(self, option: str) -> None:
         """Select an EDID."""
+        edid = EDID_VALUE_BY_OPTION.get(option)
+
+        if edid is None:
+            raise ServiceValidationError(f"Unsupported EDID option: {option}")
+
         await self.coordinator.client.set_edid(
             self._input,
-            option,
+            edid,
         )
 
         await self.coordinator.async_request_refresh()
