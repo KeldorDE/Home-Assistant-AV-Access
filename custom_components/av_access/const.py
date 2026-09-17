@@ -9,8 +9,9 @@ DEFAULT_NAME = "AV Access"
 
 UPDATE_INTERVAL = 5
 
-INPUT_COUNT = 4
-OUTPUT_COUNT = 4
+# Used when the controller does not report the number of ports.
+DEFAULT_INPUT_COUNT = 4
+DEFAULT_OUTPUT_COUNT = 4
 
 # Translation keys of the entities. The displayed names and options are
 # defined in the files in the translations directory.

@@ -15,9 +15,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import (
     AVAccessApiClient,
     AVAccessApiError,
-    AVAccessConnectionError,
+    AVAccessDeviceInfo,
 )
-from .const import DEFAULT_PORT, DOMAIN
+from .const import DEFAULT_NAME, DEFAULT_PORT, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ STEP_DATA_SCHEMA = vol.Schema(
 async def validate_input(
     hass: HomeAssistant,
     data: dict[str, Any],
-) -> None:
-    """Validate that the controller can be reached."""
+) -> AVAccessDeviceInfo:
+    """Validate that the controller can be reached and identify the matrix."""
 
     session = async_get_clientsession(hass)
 
@@ -46,7 +46,7 @@ async def validate_input(
         session=session,
     )
 
-    await client.get_status()
+    return await client.get_device_info()
 
 
 class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -57,18 +57,16 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _async_validate(
         self,
         user_input: dict[str, Any],
-    ) -> dict[str, str]:
-        """Validate the user input and return the errors to show, if any."""
+    ) -> tuple[AVAccessDeviceInfo | None, dict[str, str]]:
+        """Validate the user input and return the device info and any errors."""
 
         errors: dict[str, str] = {}
 
         try:
-            await validate_input(self.hass, user_input)
-
-        except AVAccessConnectionError:
-            errors["base"] = "cannot_connect"
+            device_info = await validate_input(self.hass, user_input)
 
         except AVAccessApiError:
+            # AVAccessConnectionError is a subclass and handled the same way.
             errors["base"] = "cannot_connect"
 
         except Exception:
@@ -77,7 +75,10 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             errors["base"] = "unknown"
 
-        return errors
+        else:
+            return device_info, errors
+
+        return None, errors
 
     async def async_step_user(
         self,
@@ -88,20 +89,18 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            host = user_input[CONF_HOST].strip()
-            port = user_input[CONF_PORT]
+            user_input[CONF_HOST] = user_input[CONF_HOST].strip()
 
-            user_input[CONF_HOST] = host
+            device_info, errors = await self._async_validate(user_input)
 
-            # Prevent the same controller from being configured twice.
-            await self.async_set_unique_id(f"{host}:{port}")
-            self._abort_if_unique_id_configured()
+            if device_info is not None:
+                # The matrix reports its own identity, so the same device cannot
+                # be added twice under different connection details.
+                await self.async_set_unique_id(device_info.unique_id)
+                self._abort_if_unique_id_configured()
 
-            errors = await self._async_validate(user_input)
-
-            if not errors:
                 return self.async_create_entry(
-                    title=f"HDMI-Matrix ({host})",
+                    title=device_info.model or DEFAULT_NAME,
                     data=user_input,
                 )
 
@@ -122,34 +121,18 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            host = user_input[CONF_HOST].strip()
-            port = user_input[CONF_PORT]
+            user_input[CONF_HOST] = user_input[CONF_HOST].strip()
 
-            user_input[CONF_HOST] = host
+            device_info, errors = await self._async_validate(user_input)
 
-            unique_id = f"{host}:{port}"
-
-            # The unique ID is derived from the connection details, so it changes
-            # with them. Only a collision with another entry must be rejected.
-            existing_entry = self.hass.config_entries.async_entry_for_domain_unique_id(
-                DOMAIN,
-                unique_id,
-            )
-
-            if (
-                existing_entry is not None
-                and existing_entry.entry_id != reconfigure_entry.entry_id
-            ):
-                return self.async_abort(reason="already_configured")
-
-            errors = await self._async_validate(user_input)
-
-            if not errors:
-                await self.async_set_unique_id(unique_id)
+            if device_info is not None:
+                # Reconfiguration must not silently point the entry at a
+                # different matrix.
+                await self.async_set_unique_id(device_info.unique_id)
+                self._abort_if_unique_id_mismatch(reason="wrong_device")
 
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
-                    unique_id=unique_id,
                     data_updates=user_input,
                 )
 

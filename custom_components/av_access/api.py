@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import dataclass
+from datetime import datetime
+import re
+from typing import Any, TypedDict
 
 from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
 
-from .const import INPUT_COUNT, OUTPUT_COUNT
+from .const import DEFAULT_INPUT_COUNT, DEFAULT_OUTPUT_COUNT
+
+# The status payload reports one entry per output and per input.
+OUTPUT_KEY_PATTERN = re.compile(r"out(\d+)_in")
+EDID_KEY_PATTERN = re.compile(r"edid_in(\d+)")
+
+
+class AVAccessStatus(TypedDict):
+    """Current routing state of the matrix, keyed by port number."""
+
+    outputs: dict[str, int]
+    edid: dict[str, int]
 
 
 class AVAccessApiError(Exception):
@@ -15,6 +29,83 @@ class AVAccessApiError(Exception):
 
 class AVAccessConnectionError(AVAccessApiError):
     """Exception raised when the controller cannot be reached."""
+
+
+def _as_str(value: Any) -> str | None:
+    """Return a non-empty string, or None."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+
+    return value.strip()
+
+
+def _as_count(value: Any, default: int) -> int:
+    """Return a positive port count, or the given default."""
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return default
+
+    return count if count > 0 else default
+
+
+def _as_datetime(value: Any) -> datetime | None:
+    """Return a timezone aware datetime, or None."""
+    if not isinstance(value, str):
+        return None
+
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+@dataclass(frozen=True, kw_only=True)
+class AVAccessDeviceInfo:
+    """Static information reported by the controller about the matrix."""
+
+    unique_id: str
+    model: str | None = None
+    manufacturer: str | None = None
+    sw_version: str | None = None
+    hw_version: str | None = None
+    arm_version: str | None = None
+    configuration_url: str | None = None
+    ip_address: str | None = None
+    netmask: str | None = None
+    gateway: str | None = None
+    ip_mode: str | None = None
+    input_count: int = DEFAULT_INPUT_COUNT
+    output_count: int = DEFAULT_OUTPUT_COUNT
+    updated_at: datetime | None = None
+
+    @classmethod
+    def from_payload(cls, data: Any) -> AVAccessDeviceInfo:
+        """Build the device information from an API payload."""
+        if not isinstance(data, dict):
+            raise AVAccessApiError(f"Unexpected device info payload: {data}")
+
+        unique_id = _as_str(data.get("unique_id"))
+
+        if unique_id is None:
+            raise AVAccessApiError("Device info payload does not contain a unique ID")
+
+        return cls(
+            unique_id=unique_id,
+            model=_as_str(data.get("model")),
+            manufacturer=_as_str(data.get("manufacturer")),
+            sw_version=_as_str(data.get("sw_version")),
+            hw_version=_as_str(data.get("hw_version")),
+            arm_version=_as_str(data.get("arm_version")),
+            configuration_url=_as_str(data.get("configuration_url")),
+            ip_address=_as_str(data.get("ip_address")),
+            netmask=_as_str(data.get("netmask")),
+            gateway=_as_str(data.get("gateway")),
+            ip_mode=_as_str(data.get("ip_mode")),
+            input_count=_as_count(data.get("input_count"), DEFAULT_INPUT_COUNT),
+            output_count=_as_count(data.get("output_count"), DEFAULT_OUTPUT_COUNT),
+            updated_at=_as_datetime(data.get("updated_at")),
+        )
 
 
 class AVAccessApiClient:
@@ -30,24 +121,45 @@ class AVAccessApiClient:
         self._session = session
         self._base_url = f"http://{host}:{port}"
 
-    async def get_status(self) -> dict[str, Any]:
+    async def get_device_info(self) -> AVAccessDeviceInfo:
+        """Return static information about the connected matrix."""
+        return AVAccessDeviceInfo.from_payload(
+            await self._request(
+                "GET",
+                "/device-info",
+            )
+        )
+
+    async def get_status(self) -> AVAccessStatus:
         """Return the current matrix state."""
         data = await self._request(
             "GET",
             "/status",
         )
 
+        if not isinstance(data, dict):
+            raise AVAccessApiError(f"Unexpected status payload: {data}")
+
+        outputs: dict[str, int] = {}
+        edid: dict[str, int] = {}
+
+        # The number of ports depends on the model, so every reported entry is
+        # taken as it comes instead of expecting a fixed range.
         try:
-            return {
-                "outputs": {
-                    str(i): int(data[f"out{i}_in"]) for i in range(1, OUTPUT_COUNT + 1)
-                },
-                "edid": {
-                    str(i): int(data[f"edid_in{i}"]) for i in range(1, INPUT_COUNT + 1)
-                },
-            }
-        except (KeyError, TypeError, ValueError) as err:
+            for key, value in data.items():
+                if match := OUTPUT_KEY_PATTERN.fullmatch(key):
+                    outputs[match.group(1)] = int(value)
+
+                elif match := EDID_KEY_PATTERN.fullmatch(key):
+                    edid[match.group(1)] = int(value)
+
+        except (TypeError, ValueError) as err:
             raise AVAccessApiError(f"Unexpected status payload: {data}") from err
+
+        return {
+            "outputs": outputs,
+            "edid": edid,
+        }
 
     async def set_output(
         self,

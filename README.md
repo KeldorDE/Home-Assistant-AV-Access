@@ -33,12 +33,12 @@ This integration communicates with the AV Access Matrix Controller, which handle
 2. Go to **Integrations**.
 3. Open the menu in the top-right corner and select **Custom repositories**.
 4. Add this repository as an **Integration**.
-5. Search for **AV Access Matrix** and install it.
+5. Search for **AV Access** and install it.
 6. Restart Home Assistant.
 
 After restarting Home Assistant, go to:
 
-**Settings → Devices & services → Add integration → AV Access Matrix**
+**Settings → Devices & services → Add integration → AV Access**
 
 and enter the address of your AV Access Matrix Controller.
 
@@ -53,10 +53,33 @@ custom_components/av_access
 to:
 
 ```text
-/config/custom_components/av_access_matrix
+/config/custom_components/av_access
 ```
 
 Restart Home Assistant afterwards.
+
+## Configuration
+
+The integration is configured through the Home Assistant UI:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Host | yes | Address of the AV Access Matrix Controller. |
+| Port | yes | Port of the AV Access Matrix Controller. Defaults to `62225`. |
+
+Model, firmware version, the number of inputs and outputs and the link to the
+matrix web interface are read from the controller, so the entities match the
+connected matrix.
+
+The connection details can be changed later without losing the entities through
+**Settings → Devices & services → AV Access → Reconfigure**.
+
+## Diagnostics
+
+Device information and the current routing state can be downloaded through
+**Settings → Devices & services → AV Access → Download diagnostics**.
+
+Addresses are redacted, so the file can be attached to a bug report.
 
 ## License
 

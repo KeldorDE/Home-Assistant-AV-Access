@@ -31,24 +31,23 @@ async def async_setup_entry(
 ) -> None:
     """Set up AV Access HDMI-Matrix select entities."""
     coordinator = entry.runtime_data
+    device = coordinator.device_info
 
-    entities = []
-
-    for output in range(1, 5):
-        entities.append(
-            AVAccessOutputSelect(
-                coordinator=coordinator,
-                output=output,
-            )
+    entities: list[SelectEntity] = [
+        AVAccessOutputSelect(
+            coordinator=coordinator,
+            output=output,
         )
+        for output in range(1, device.output_count + 1)
+    ]
 
-    for input_number in range(1, 5):
-        entities.append(
-            AVAccessEdidSelect(
-                coordinator=coordinator,
-                input_number=input_number,
-            )
+    entities.extend(
+        AVAccessEdidSelect(
+            coordinator=coordinator,
+            input_number=input_number,
         )
+        for input_number in range(1, device.input_count + 1)
+    )
 
     async_add_entities(entities)
 
@@ -57,7 +56,6 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
     """Select the HDMI input for a matrix output."""
 
     _attr_translation_key = TRANSLATION_KEY_OUTPUT_INPUT
-    _attr_options = list(INPUT_OPTION_BY_VALUE.values())
 
     def __init__(
         self,
@@ -69,6 +67,11 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
 
         self._output = output
 
+        self._attr_options = [
+            INPUT_OPTION_BY_VALUE[number]
+            for number in range(1, coordinator.device_info.input_count + 1)
+            if number in INPUT_OPTION_BY_VALUE
+        ]
         self._attr_translation_placeholders = {"output": str(output)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_input"
@@ -77,15 +80,12 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         """Return the currently selected input."""
-        value = self.coordinator.data.get("outputs", {}).get(str(self._output))
+        value = self.coordinator.data["outputs"].get(str(self._output))
 
         if value is None:
             return None
 
-        try:
-            return INPUT_OPTION_BY_VALUE.get(int(value))
-        except (TypeError, ValueError):
-            return None
+        return INPUT_OPTION_BY_VALUE.get(value)
 
     async def async_select_option(self, option: str) -> None:
         """Select an HDMI input."""
@@ -126,15 +126,12 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         """Return the currently selected EDID."""
-        value = self.coordinator.data.get("edid", {}).get(str(self._input))
+        value = self.coordinator.data["edid"].get(str(self._input))
 
         if value is None:
             return None
 
-        try:
-            return EDID_OPTION_BY_VALUE.get(int(value))
-        except (TypeError, ValueError):
-            return None
+        return EDID_OPTION_BY_VALUE.get(value)
 
     async def async_select_option(self, option: str) -> None:
         """Select an EDID."""

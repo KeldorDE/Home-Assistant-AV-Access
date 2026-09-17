@@ -3,7 +3,8 @@
         "abort": {
             "already_configured": "Dieser AV Access HDMI-Matrix Controller ist bereits konfiguriert.",
             "already_in_progress": "Die Einrichtung dieses AV Access HDMI-Matrix Controllers läuft bereits.",
-            "reconfigure_successful": "Der AV Access HDMI-Matrix Controller wurde erfolgreich neu konfiguriert."
+            "reconfigure_successful": "Der AV Access HDMI-Matrix Controller wurde erfolgreich neu konfiguriert.",
+            "wrong_device": "Die konfigurierte Adresse gehört zu einer anderen HDMI-Matrix."
         },
         "error": {
             "cannot_connect": "Verbindung zum AV Access HDMI-Matrix Controller fehlgeschlagen.",
