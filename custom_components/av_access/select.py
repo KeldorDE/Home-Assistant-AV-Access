@@ -19,6 +19,10 @@ from .const import (
 from .coordinator import AVAccessCoordinator
 from .entity import AVAccessEntity
 
+# The coordinator handles all data updates, so the entities do not need to be
+# updated in parallel.
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
