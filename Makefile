@@ -8,8 +8,5 @@ down:
 
 restart: down up
 
-ha-restart:
-	docker compose -f ${DOCKER_COMPOSE} restart homeassistant
-
-controller-restart:
-	docker compose -f ${DOCKER_COMPOSE} restart av-access-controller
+logs:
+	docker compose -f ${DOCKER_COMPOSE} logs -f
