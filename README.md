@@ -27,6 +27,21 @@ Support for additional AV Access devices may be added in the future.
 
 This integration communicates with the AV Access Matrix Controller, which handles communication with the matrix, command serialization, caching and device state.
 
+## State updates
+
+The integration subscribes to the event stream of the controller
+(`GET /events`, Server-Sent Events) and therefore receives every state change
+as a push, including switching at the front panel of the matrix. As long as the
+stream is connected, the integration does not poll at all.
+
+Every event carries the complete state, so the integration is automatically in
+sync again after a reconnect.
+
+A controller without an event stream answers `/events` with `404`. In that case,
+and whenever the stream is interrupted, the integration falls back to polling
+`GET /status` every few seconds, so older controller versions keep working
+unchanged.
+
 ## Installation
 
 ### HACS

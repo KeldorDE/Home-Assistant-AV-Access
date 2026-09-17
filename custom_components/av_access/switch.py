@@ -79,4 +79,4 @@ class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):
             enabled,
         )
 
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_refresh_after_command()

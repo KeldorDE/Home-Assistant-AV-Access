@@ -66,6 +66,10 @@ async def async_setup_entry(
     # Make the coordinator available to all platforms.
     entry.runtime_data = coordinator
 
+    # From now on the state is received via the event stream, if the controller
+    # supports it. Otherwise the coordinator keeps polling.
+    coordinator.async_start_event_listener()
+
     await hass.config_entries.async_forward_entry_setups(
         entry,
         PLATFORMS,

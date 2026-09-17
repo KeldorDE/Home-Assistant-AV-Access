@@ -17,6 +17,17 @@ DEFAULT_NAME = "AV Access"
 
 UPDATE_INTERVAL = 5
 
+# The controller sends an SSE comment in this interval to keep the connection
+# alive. A healthy stream therefore never stays silent for longer than this.
+SSE_KEEPALIVE_INTERVAL = 30
+
+# Tolerate one missed keepalive before a stream is considered dead.
+SSE_READ_TIMEOUT = SSE_KEEPALIVE_INTERVAL * 2
+
+# Backoff used to reconnect to the event stream.
+SSE_RECONNECT_INTERVAL = 5
+SSE_RECONNECT_MAX_INTERVAL = 60
+
 # Used when the controller does not report the number of ports.
 DEFAULT_INPUT_COUNT = 4
 DEFAULT_OUTPUT_COUNT = 4

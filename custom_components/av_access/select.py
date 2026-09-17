@@ -102,7 +102,7 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
             input_number,
         )
 
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_refresh_after_command()
 
 
 class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
@@ -149,4 +149,4 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
             edid,
         )
 
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_refresh_after_command()

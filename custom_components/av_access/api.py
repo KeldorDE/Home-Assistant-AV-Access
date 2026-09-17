@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
+import json
+import logging
 import re
 from typing import Any, TypedDict
 
 from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
 
-from .const import DEFAULT_INPUT_COUNT, DEFAULT_OUTPUT_COUNT
+from .const import (
+    DEFAULT_INPUT_COUNT,
+    DEFAULT_OUTPUT_COUNT,
+    SSE_READ_TIMEOUT,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+# Name of the SSE event carrying the full matrix state.
+STATE_EVENT = "state"
 
 # The status payload reports one entry per output and per input.
 OUTPUT_KEY_PATTERN = re.compile(r"out(\d+)_in")
@@ -35,6 +47,47 @@ class AVAccessApiError(Exception):
 
 class AVAccessConnectionError(AVAccessApiError):
     """Exception raised when the controller cannot be reached."""
+
+
+class AVAccessEventsNotSupportedError(AVAccessApiError):
+    """Exception raised when the controller does not offer an event stream."""
+
+
+def _parse_status(data: Any) -> AVAccessStatus:
+    """Build the matrix state from a status payload.
+
+    The same payload is returned by ``GET /status`` and by the ``state`` events
+    of the controller, so both paths share this function.
+    """
+    if not isinstance(data, dict):
+        raise AVAccessApiError(f"Unexpected status payload: {data}")
+
+    outputs: dict[str, int] = {}
+    edid: dict[str, int] = {}
+    hdcp: dict[str, bool] = {}
+
+    # The number of ports depends on the model, so every reported entry is
+    # taken as it comes instead of expecting a fixed range. A matrix without
+    # HDCP support reports no HDCP entries at all.
+    try:
+        for key, value in data.items():
+            if match := OUTPUT_KEY_PATTERN.fullmatch(key):
+                outputs[match.group(1)] = int(value)
+
+            elif match := EDID_KEY_PATTERN.fullmatch(key):
+                edid[match.group(1)] = int(value)
+
+            elif match := HDCP_KEY_PATTERN.fullmatch(key):
+                hdcp[match.group(1)] = _as_bool(value)
+
+    except (TypeError, ValueError) as err:
+        raise AVAccessApiError(f"Unexpected status payload: {data}") from err
+
+    return {
+        "outputs": outputs,
+        "edid": edid,
+        "hdcp": hdcp,
+    }
 
 
 def _as_str(value: Any) -> str | None:
@@ -158,40 +211,111 @@ class AVAccessApiClient:
 
     async def get_status(self) -> AVAccessStatus:
         """Return the current matrix state."""
-        data = await self._request(
-            "GET",
-            "/status",
+        return _parse_status(
+            await self._request(
+                "GET",
+                "/status",
+            )
         )
 
-        if not isinstance(data, dict):
-            raise AVAccessApiError(f"Unexpected status payload: {data}")
+    async def subscribe_events(self) -> AsyncIterator[AVAccessStatus]:
+        """Yield the matrix state whenever the controller reports a change.
 
-        outputs: dict[str, int] = {}
-        edid: dict[str, int] = {}
-        hdcp: dict[str, bool] = {}
+        The controller sends the currently cached state right after connecting,
+        so a consumer is in sync as soon as the stream is established.
+        """
+        url = f"{self._base_url}/events"
 
-        # The number of ports depends on the model, so every reported entry is
-        # taken as it comes instead of expecting a fixed range. A matrix without
-        # HDCP support reports no HDCP entries at all.
         try:
-            for key, value in data.items():
-                if match := OUTPUT_KEY_PATTERN.fullmatch(key):
-                    outputs[match.group(1)] = int(value)
+            async with self._session.get(
+                url,
+                headers={"Accept": "text/event-stream"},
+                # A stream stays open, so the regular request timeout must not
+                # apply. Only a silent connection is treated as dead.
+                timeout=ClientTimeout(
+                    total=None,
+                    sock_connect=10,
+                    sock_read=SSE_READ_TIMEOUT,
+                ),
+            ) as response:
+                if response.status == 404:
+                    raise AVAccessEventsNotSupportedError(
+                        f"The controller at {self._base_url} does not provide an "
+                        f"event stream"
+                    )
 
-                elif match := EDID_KEY_PATTERN.fullmatch(key):
-                    edid[match.group(1)] = int(value)
+                response.raise_for_status()
 
-                elif match := HDCP_KEY_PATTERN.fullmatch(key):
-                    hdcp[match.group(1)] = _as_bool(value)
+                event_name = ""
+                data_lines: list[str] = []
 
-        except (TypeError, ValueError) as err:
-            raise AVAccessApiError(f"Unexpected status payload: {data}") from err
+                async for raw_line in response.content:
+                    line = raw_line.decode("utf-8", "replace").rstrip("\r\n")
 
-        return {
-            "outputs": outputs,
-            "edid": edid,
-            "hdcp": hdcp,
-        }
+                    # An empty line terminates the current frame.
+                    if not line:
+                        if status := self._parse_event(event_name, data_lines):
+                            yield status
+
+                        event_name = ""
+                        data_lines = []
+                        continue
+
+                    # Lines starting with a colon are comments, for example the
+                    # keepalive of the controller.
+                    if line.startswith(":"):
+                        continue
+
+                    field, _, value = line.partition(":")
+
+                    if value.startswith(" "):
+                        value = value[1:]
+
+                    if field == "event":
+                        event_name = value
+
+                    elif field == "data":
+                        data_lines.append(value)
+
+                    # The "id" and "retry" fields are not needed, because every
+                    # event carries the complete state.
+
+        except ClientResponseError as err:
+            if err.status == 404:
+                raise AVAccessEventsNotSupportedError(
+                    f"The controller at {self._base_url} does not provide an "
+                    f"event stream"
+                ) from err
+
+            raise AVAccessApiError(
+                f"Event stream failed with HTTP {err.status}: {err.message}"
+            ) from err
+
+        except (ClientError, TimeoutError) as err:
+            raise AVAccessConnectionError(
+                f"Event stream of the AV Access HDMI-Matrix Controller at "
+                f"{self._base_url} was interrupted: {err}"
+            ) from err
+
+    @staticmethod
+    def _parse_event(
+        event_name: str,
+        data_lines: list[str],
+    ) -> AVAccessStatus | None:
+        """Return the state of a completed SSE frame, if it carries one."""
+        if event_name != STATE_EVENT or not data_lines:
+            return None
+
+        payload = "\n".join(data_lines)
+
+        # A single malformed message must not tear down the stream.
+        try:
+            return _parse_status(json.loads(payload))
+
+        except (ValueError, AVAccessApiError):
+            _LOGGER.debug("Ignoring malformed state event: %s", payload)
+
+            return None
 
     async def set_output(
         self,
