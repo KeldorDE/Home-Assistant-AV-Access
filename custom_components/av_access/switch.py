@@ -41,6 +41,7 @@ class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):
     """Enable or disable HDCP support for a matrix input."""
 
     _attr_translation_key = TRANSLATION_KEY_INPUT_HDCP
+    _reports_external_change = True
     _attr_device_class = SwitchDeviceClass.SWITCH
     _attr_entity_category = EntityCategory.CONFIG
 

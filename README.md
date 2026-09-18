@@ -36,12 +36,19 @@ afterwards, so all communication is serialized and spaced out by the
 integration. Sending commands back to back has been observed to freeze the
 device.
 
-The routing is polled every 10 seconds, which is the value that also changes
-when somebody switches at the front panel of the matrix. EDID and HDCP cost one
-command per input and only change through this integration or the web interface
-of the matrix, so they are read once a minute. A command issued by Home
-Assistant is confirmed by the matrix and applied immediately, so an entity never
-waits for the next poll.
+The routing is polled every 3 seconds by default, which is the value that also
+changes when somebody switches at the front panel of the matrix or with the
+remote control. The interval can be changed in the configuration dialog of the
+integration, next to the host and the port. EDID and HDCP cost one command per
+input, so they are read for one input per poll instead of for all of them at
+once. A change made at the device is therefore visible after one rotation over
+all inputs at the latest. A command issued by Home Assistant is confirmed by the
+matrix and applied immediately, so an entity never waits for the next poll.
+
+A change the integration finds during a poll was made at the front panel or with
+the remote control, so it is reported to the logbook as "was changed at the
+matrix". A change Home Assistant itself performed keeps showing the user or the
+automation that triggered it.
 
 ## Installation
 

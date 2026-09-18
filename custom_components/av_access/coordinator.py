@@ -6,6 +6,7 @@ from datetime import timedelta
 import logging
 from typing import TYPE_CHECKING
 
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -19,7 +20,7 @@ from .client import (
     AVAccessError,
     AVAccessStatus,
 )
-from .const import FULL_SYNC_INTERVAL, UPDATE_INTERVAL
+from .const import DEFAULT_SCAN_INTERVAL
 
 if TYPE_CHECKING:
     from . import AVAccessConfigEntry
@@ -40,12 +41,17 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         device_info: AVAccessDeviceInfo,
     ) -> None:
         """Initialize the coordinator."""
+        scan_interval = config_entry.data.get(
+            CONF_SCAN_INTERVAL,
+            DEFAULT_SCAN_INTERVAL,
+        )
+
         super().__init__(
             hass,
             _LOGGER,
             config_entry=config_entry,
             name="AV Access Matrix",
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(seconds=scan_interval),
         )
 
         self.client = client
@@ -53,7 +59,17 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # The static device information is read once while setting up the entry.
         self.device_info = device_info
 
-        self._next_full_sync = 0.0
+        # The input whose EDID and HDCP are read during the next poll.
+        self._next_input = 1
+
+        # Set while the state a command confirmed is published, so entities can
+        # tell a change they caused from a change made at the device.
+        self._command_update = False
+
+    @property
+    def command_update(self) -> bool:
+        """Return whether the current update belongs to a command."""
+        return self._command_update
 
     async def async_refresh_after_command(self) -> None:
         """Refresh the state after a command."""
@@ -94,12 +110,18 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         if self.data is None:
             return
 
-        self.async_set_updated_data(
-            {
-                **self.data,
-                section: {**self.data[section], port: value},  # type: ignore[literal-required]
-            }
-        )
+        self._command_update = True
+
+        try:
+            self.async_set_updated_data(
+                {
+                    **self.data,
+                    section: {**self.data[section], port: value},  # type: ignore[literal-required]
+                }
+            )
+
+        finally:
+            self._command_update = False
 
     async def _async_update_data(self) -> AVAccessStatus:
         """Fetch the latest state of the matrix."""
@@ -119,21 +141,47 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
     async def _async_fetch_status(self) -> AVAccessStatus:
         """Read the state, sparing the matrix the commands that rarely change.
 
-        Reading EDID and HDCP costs one command per input, and every command
-        occupies the matrix for at least a second. The routing is the only value
-        that also changes at the front panel, so it is the only one that is
-        polled continuously.
+        The matrix answers one command at a time, so reading everything on every
+        poll would keep the device busy permanently. The routing is read on
+        every poll because it changes for every output at once, while EDID and
+        HDCP are read for one input per poll. Changes made at the front panel or
+        with the remote control therefore show up after one full rotation at the
+        latest.
         """
-        now = self.hass.loop.time()
+        if self.data is None:
+            return await self.client.async_get_status()
 
-        if self.data is None or now >= self._next_full_sync:
-            status = await self.client.async_get_status()
+        outputs = await self.client.async_get_routing()
 
-            self._next_full_sync = now + FULL_SYNC_INTERVAL
+        edid = dict(self.data["edid"])
+        hdcp = dict(self.data["hdcp"])
 
-            return status
+        input_number = self._next_input
+        input_count = max(self.device_info.input_count, 1)
+
+        if input_number > input_count:
+            input_number = 1
+
+        self._next_input = input_number % input_count + 1
+
+        port = str(input_number)
+
+        # Only ports the matrix already reported have entities, so no unknown
+        # port is queried and no entity appears after the setup.
+        if port in edid:
+            value = await self.client.async_get_input_edid(input_number)
+
+            if value is not None:
+                edid[port] = value
+
+        if port in hdcp:
+            state = await self.client.async_get_input_hdcp(input_number)
+
+            if state is not None:
+                hdcp[port] = state
 
         return {
-            **self.data,
-            "outputs": await self.client.async_get_routing(),
+            "outputs": outputs,
+            "edid": edid,
+            "hdcp": hdcp,
         }
