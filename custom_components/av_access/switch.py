@@ -54,10 +54,11 @@ class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):
 
         self._input = input_number
 
-        self._attr_translation_placeholders = {"input": str(input_number)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_input_{input_number}_hdcp"
         )
+
+        self._name_after_input(input_number)
 
     @property
     def is_on(self) -> bool | None:

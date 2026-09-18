@@ -32,7 +32,27 @@
     "entity": {
         "select": {
             "input_edid": {
-                "name": "Eingang {input} EDID",
+                "name": "EDID - Eingang {input}",
+                "state": {
+                    "1080p60_2_0ch": "1080p@60Hz 2.0ch Audio",
+                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch Audio mit HDR",
+                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch Audio mit HDR",
+                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch Audio mit HDR",
+                    "4k30_8bit_2_0ch": "4K@30Hz/8bit nur 2.0ch Audio ohne HDR",
+                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch Audio mit HDR",
+                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch Audio mit HDR",
+                    "5k_super_widescreen_2ch": "5K Super-Breitbild (2ch)",
+                    "5k_ultra_widescreen_2ch": "5K Ultra-Breitbild (2ch)",
+                    "copy_from_output_1": "Von Ausgang 1 kopieren",
+                    "copy_from_output_2": "Von Ausgang 2 kopieren",
+                    "copy_from_output_3": "Von Ausgang 3 kopieren",
+                    "copy_from_output_4": "Von Ausgang 4 kopieren",
+                    "smart_edid": "Smart EDID",
+                    "write_edid": "EDID schreiben"
+                }
+            },
+            "input_edid_named": {
+                "name": "EDID - Eingang {input} - {name}",
                 "state": {
                     "1080p60_2_0ch": "1080p@60Hz 2.0ch Audio",
                     "4k30_2_0ch_hdr": "4K@30Hz 2.0ch Audio mit HDR",
@@ -52,7 +72,21 @@
                 }
             },
             "output_input": {
-                "name": "Ausgang {output} Eingang",                "state": {
+                "name": "Ausgang {output}",
+                "state": {
+                    "hdmi_1": "HDMI 1",
+                    "hdmi_2": "HDMI 2",
+                    "hdmi_3": "HDMI 3",
+                    "hdmi_4": "HDMI 4",
+                    "hdmi_5": "HDMI 5",
+                    "hdmi_6": "HDMI 6",
+                    "hdmi_7": "HDMI 7",
+                    "hdmi_8": "HDMI 8"
+                }
+            },
+            "output_input_named": {
+                "name": "Ausgang {output} - {name}",
+                "state": {
                     "hdmi_1": "HDMI 1",
                     "hdmi_2": "HDMI 2",
                     "hdmi_3": "HDMI 3",
@@ -77,7 +111,10 @@
         },
         "switch": {
             "input_hdcp": {
-                "name": "Eingang {input} HDCP"
+                "name": "HDCP Eingang {input}"
+            },
+            "input_hdcp_named": {
+                "name": "HDCP Eingang {input} - {name}"
             }
         }
     },
@@ -100,7 +137,7 @@
                             "input_7": "Eingang 7",
                             "input_8": "Eingang 8"
                         },
-                        "description": "Diese Namen ersetzen \"HDMI 1\" usw. bei der Auswahl des Eingangs eines Ausgangs und stehen als Sensor zur Verfügung.",
+                        "description": "Diese Namen ersetzen \"HDMI 1\" usw. bei der Auswahl des Eingangs eines Ausgangs, ergänzen die Bezeichnung von EDID und HDCP des Eingangs und stehen als Sensor zur Verfügung.",
                         "name": "Eingänge"
                     },
                     "output_labels": {
@@ -114,7 +151,7 @@
                             "output_7": "Ausgang 7",
                             "output_8": "Ausgang 8"
                         },
-                        "description": "Diese Namen stehen als Sensor zur Verfügung, zum Beispiel als Überschrift im Dashboard.",
+                        "description": "Diese Namen ergänzen die Bezeichnung des Ausgangs und stehen als Sensor zur Verfügung, zum Beispiel als Überschrift im Dashboard.",
                         "name": "Ausgänge"
                     }
                 },
