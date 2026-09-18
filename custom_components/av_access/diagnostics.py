@@ -1,4 +1,4 @@
-"""Diagnostics support for the AV Access HDMI-Matrix integration."""
+"""Diagnostics support for the AV Access HDMI matrix integration."""
 
 from __future__ import annotations
 
