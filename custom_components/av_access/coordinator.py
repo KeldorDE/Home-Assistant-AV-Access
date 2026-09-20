@@ -77,6 +77,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
     async def async_set_output(self, output: int, input_number: int) -> None:
         """Route an HDMI input to an output."""
+        current_input = self.data["outputs"].get(str(output))
+
+        # Skip sending the command if the output is already set to the desired input.
+        if current_input == input_number:
+            _LOGGER.debug("Output %d is already set to input %d", output, input_number)
+            return
+
         confirmed = await self.client.async_set_output(output, input_number)
 
         self._async_apply("outputs", str(output), confirmed)
