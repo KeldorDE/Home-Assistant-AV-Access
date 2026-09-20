@@ -77,6 +77,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
     async def async_set_output(self, output: int, input_number: int) -> None:
         """Route an HDMI input to an output."""
+        current_input = self.data["outputs"].get(str(output))
+
+        # Skip sending the command if the output is already set to the desired input.
+        if current_input == input_number:
+            _LOGGER.debug("Output %d is already set to input %d", output, input_number)
+            return
+
         confirmed = await self.client.async_set_output(output, input_number)
 
         self._async_apply("outputs", str(output), confirmed)
@@ -85,6 +92,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
     async def async_set_edid(self, input_number: int, edid: int) -> None:
         """Set the EDID of an HDMI input."""
+        current_edid = self.data["edid"].get(str(input_number))
+
+        # Skip sending the command if the EDID is already set to the desired value.
+        if current_edid == edid:
+            _LOGGER.debug("EDID for input %d is already set to %s", input_number, edid)
+            return
+
         confirmed = await self.client.async_set_edid(input_number, edid)
 
         self._async_apply("edid", str(input_number), confirmed)
