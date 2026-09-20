@@ -6,5 +6,15 @@ dev_same_edid_select:
       entity_id: select.4kmx44_h2_edid_eingang_4
     data:
       option: copy_from_output_4
-  alias: DEV | Same  EDID select
+  alias: DEV | Same EDID select
+  description: ''
+dev_same_input_to_output:
+  sequence:
+  - action: select.select_option
+    metadata: {}
+    target:
+      entity_id: select.4kmx44_h2_ausgang_4
+    data:
+      option: hdmi_4
+  alias: DEV | Same input to output
   description: ''
