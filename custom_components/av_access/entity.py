@@ -8,6 +8,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    ATTR_DEVICE_NAME,
     DOMAIN,
     EVENT_EXTERNAL_CHANGE,
     MANUFACTURER,
@@ -75,7 +76,8 @@ class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
         A state change only names its origin in the logbook if it shares the
         context with an event describing it. Home Assistant sets that context
         for its own commands, so only a change made at the front panel or with
-        the remote control needs one.
+        the remote control needs one. The name of the matrix travels with the
+        event, because the logbook shows it as the origin of the change.
         """
         state = self.state
         previous_state = self._previous_state
@@ -95,7 +97,10 @@ class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
 
         self.hass.bus.async_fire(
             EVENT_EXTERNAL_CHANGE,
-            {ATTR_ENTITY_ID: self.entity_id},
+            {
+                ATTR_ENTITY_ID: self.entity_id,
+                ATTR_DEVICE_NAME: self.coordinator.config_entry.title,
+            },
             context=context,
         )
 

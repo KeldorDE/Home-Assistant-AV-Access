@@ -8,7 +8,7 @@ from typing import Any
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Event, HomeAssistant, callback
 
-from .const import DOMAIN, EVENT_EXTERNAL_CHANGE
+from .const import ATTR_DEVICE_NAME, DEFAULT_NAME, DOMAIN, EVENT_EXTERNAL_CHANGE
 
 # The logbook does not translate the descriptions of custom events, so the
 # message is kept in English like the ones of the core integrations.
@@ -24,9 +24,14 @@ def async_describe_events(
 
     @callback
     def async_describe_external_change(event: Event) -> dict[str, Any]:
-        """Describe a change made at the front panel or with the remote."""
+        """Describe a change made at the front panel or with the remote.
+
+        The name becomes the origin the logbook shows for the state change the
+        event shares its context with, so it names the matrix itself instead of
+        the integration.
+        """
         return {
-            "name": "AV Access",
+            "name": event.data.get(ATTR_DEVICE_NAME) or DEFAULT_NAME,
             "message": MESSAGE_EXTERNAL_CHANGE,
             "entity_id": event.data.get(ATTR_ENTITY_ID),
         }

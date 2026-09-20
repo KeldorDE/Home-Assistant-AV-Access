@@ -47,8 +47,9 @@ matrix and applied immediately, so an entity never waits for the next poll.
 
 A change the integration finds during a poll was made at the front panel or with
 the remote control, so it is reported to the logbook as "was changed at the
-matrix". A change Home Assistant itself performed keeps showing the user or the
-automation that triggered it.
+matrix" and the state change itself names the matrix as its origin. A change
+Home Assistant itself performed keeps showing the user or the automation that
+triggered it.
 
 ## Installation
 

@@ -5,9 +5,12 @@ from __future__ import annotations
 DOMAIN = "av_access"
 
 # Fired when a poll finds a state the matrix changed without a command from
-# Home Assistant, so the logbook can name the front panel or the remote control
-# as the origin of the state change.
+# Home Assistant. The logbook names the matrix as the origin of the state
+# change, which needs an event sharing the context of that change.
 EVENT_EXTERNAL_CHANGE = "av_access_external_change"
+
+# Carries the name of the matrix to the logbook, which shows it as the origin.
+ATTR_DEVICE_NAME = "device_name"
 
 # Option keys holding the user defined names of the ports.
 CONF_INPUT_LABELS = "input_labels"

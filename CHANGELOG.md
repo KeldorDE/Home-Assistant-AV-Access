@@ -15,6 +15,11 @@ Tags are named after the version itself, for example `1.0.0`.
 
 - Prevent stale polls from reverting confirmed states or falsely reporting external changes
 
+### Changed
+
+- Name the matrix itself as the origin of a change made at the front panel or
+  with the remote control, instead of the integration
+
 ## [0.4.1] - 2026-09-20
 
 ### Fixed
