@@ -11,7 +11,7 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
-## [0.4.2] - 2026-09-20
+## [1.0.0] - 2026-09-20
 
 ### Fixed
 
