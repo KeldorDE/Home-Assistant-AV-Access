@@ -11,6 +11,11 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Fixed
+- Add a value check to the EDID switch command to prevent redundant EDID updates
+- Add a value check to the output switch command to prevent redundant output updates
+
+
 ## [0.4.0] - 2026-09-17
 
 ### Added
