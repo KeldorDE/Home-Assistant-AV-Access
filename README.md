@@ -4,7 +4,7 @@ Custom Home Assistant integration for controlling AV Access HDMI matrix switches
 
 The integration provides native Home Assistant entities for controlling HDMI routing and other supported matrix functions.
 
-![Entities](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/main/docs/images/entities.webp)
+![Entities](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/refs/heads/main/docs/images/entities.webp)
 
 ## Features
 
@@ -110,7 +110,7 @@ The integration is configured through the Home Assistant UI:
 | --- | --- | --- |
 | Host | yes | Address of the AV Access HDMI matrix. |
 | Port | yes | Telnet port of the matrix. Defaults to `23`. |
-![Entities](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/main/docs/images/entities.webp)
+
 Model, firmware version, the number of inputs and outputs and the link to the
 matrix web interface are read from the matrix, so the entities match the
 connected device.
