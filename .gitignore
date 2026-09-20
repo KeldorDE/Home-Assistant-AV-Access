@@ -11,3 +11,8 @@ __pycache__/
 *.py[cod]
 
 dev/config
+!dev/config/configuration.yaml
+!dev/config/automations.yaml
+!dev/config/scripts.yaml
+!dev/config/scenes.yaml
+!dev/config/themes.yaml
