@@ -11,6 +11,10 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Prevent stale polls from reverting confirmed states or falsely reporting external changes
+
 ## [0.4.1] - 2026-09-20
 
 ### Fixed

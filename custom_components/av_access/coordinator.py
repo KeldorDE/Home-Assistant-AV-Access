@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import timedelta
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, callback
@@ -20,12 +21,23 @@ from .client import (
     AVAccessError,
     AVAccessStatus,
 )
-from .const import DEFAULT_SCAN_INTERVAL
+from .const import COMMAND_CONFIRM_TIMEOUT, DEFAULT_SCAN_INTERVAL
 
 if TYPE_CHECKING:
     from . import AVAccessConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+# The values of the states the matrix reports for a port.
+_ValueT = TypeVar("_ValueT", int, bool)
+
+
+@dataclass
+class _PendingCommand:
+    """A value the matrix confirmed for a command but has not reported yet."""
+
+    value: int | bool
+    expires_at: float
 
 
 class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
@@ -65,6 +77,9 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # Set while the state a command confirmed is published, so entities can
         # tell a change they caused from a change made at the device.
         self._command_update = False
+
+        # The values commands confirmed, kept until the matrix reports them.
+        self._pending: dict[tuple[str, str], _PendingCommand] = {}
 
     @property
     def command_update(self) -> bool:
@@ -124,6 +139,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         if self.data is None:
             return
 
+        # A poll that started before the command still reports the previous
+        # value, so the confirmed one is kept until the matrix reports it.
+        self._pending[(section, port)] = _PendingCommand(
+            value=value,
+            expires_at=self.hass.loop.time() + COMMAND_CONFIRM_TIMEOUT,
+        )
+
         self._command_update = True
 
         try:
@@ -136,6 +158,39 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         finally:
             self._command_update = False
+
+    @callback
+    def _async_confirm(self, section: str, port: str, value: _ValueT) -> _ValueT:
+        """Return the value to publish for a value read from the matrix.
+
+        Ignore stale poll results while a command awaits confirmation to
+        prevent false external changes. Once the command is no longer recent,
+        accept the matrix's reported value.
+        """
+        key = (section, port)
+        pending = self._pending.get(key)
+
+        if pending is None:
+            return value
+
+        if pending.value == value:
+            del self._pending[key]
+            return value
+
+        if pending.expires_at <= self.hass.loop.time():
+            del self._pending[key]
+
+            _LOGGER.debug(
+                "Matrix reports %s for %s %s instead of the commanded %s",
+                value,
+                section,
+                port,
+                pending.value,
+            )
+
+            return value
+
+        return cast(_ValueT, pending.value)
 
     async def _async_update_data(self) -> AVAccessStatus:
         """Fetch the latest state of the matrix."""
@@ -155,12 +210,9 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
     async def _async_fetch_status(self) -> AVAccessStatus:
         """Read the state, sparing the matrix the commands that rarely change.
 
-        The matrix answers one command at a time, so reading everything on every
-        poll would keep the device busy permanently. The routing is read on
-        every poll because it changes for every output at once, while EDID and
-        HDCP are read for one input per poll. Changes made at the front panel or
-        with the remote control therefore show up after one full rotation at the
-        latest.
+        The matrix processes commands sequentially, so polling all values would
+        keep it busy. Routing is checked every poll, while EDID and HDCP rotate
+        through one input per poll. External changes are detected within one rotation.
         """
         if self.data is None:
             return await self.client.async_get_status()
@@ -180,6 +232,11 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         port = str(input_number)
 
+        # The values read from the matrix during this poll.
+        read: list[tuple[str, str]] = [
+            ("outputs", output_port) for output_port in outputs
+        ]
+
         # Only ports the matrix already reported have entities, so no unknown
         # port is queried and no entity appears after the setup.
         if port in edid:
@@ -187,15 +244,31 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
             if value is not None:
                 edid[port] = value
+                read.append(("edid", port))
 
         if port in hdcp:
             state = await self.client.async_get_input_hdcp(input_number)
 
             if state is not None:
                 hdcp[port] = state
+                read.append(("hdcp", port))
 
-        return {
+        status: AVAccessStatus = {
             "outputs": outputs,
             "edid": edid,
             "hdcp": hdcp,
         }
+
+        # Reading the whole state takes several seconds, in which a command can
+        # change it. The values are therefore compared with the pending ones
+        # after the last read, so a value read before a command does not undo
+        # it.
+        for section, read_port in read:
+            values = status[section]  # type: ignore[literal-required]
+            values[read_port] = self._async_confirm(
+                section,
+                read_port,
+                values[read_port],
+            )
+
+        return status

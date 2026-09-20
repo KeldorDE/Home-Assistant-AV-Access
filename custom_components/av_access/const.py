@@ -35,6 +35,12 @@ MAX_SCAN_INTERVAL = 300
 # The matrix accepts one command at a time and needs a pause afterwards.
 # Sending commands back to back has been observed to freeze the device.
 COMMAND_DELAY = 1.0
+
+# Seconds a value a command confirmed wins over a value read from the matrix.
+# A poll that started before the command still reports the previous value and
+# would otherwise look like a change made at the front panel. After this window
+# the matrix is believed again, so a state it really keeps is not hidden.
+COMMAND_CONFIRM_TIMEOUT = 10.0
 CONNECT_TIMEOUT = 3.0
 READ_TIMEOUT = 3.0
 CLOSE_TIMEOUT = 1.0
