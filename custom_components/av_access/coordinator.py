@@ -85,6 +85,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
     async def async_set_edid(self, input_number: int, edid: int) -> None:
         """Set the EDID of an HDMI input."""
+        current_edid = self.data["edid"].get(str(input_number))
+
+        # Skip sending the command if the EDID is already set to the desired value.
+        if current_edid == edid:
+            _LOGGER.debug("EDID for input %d is already set to %s", input_number, edid)
+            return
+
         confirmed = await self.client.async_set_edid(input_number, edid)
 
         self._async_apply("edid", str(input_number), confirmed)
