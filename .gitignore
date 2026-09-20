@@ -10,7 +10,7 @@
 __pycache__/
 *.py[cod]
 
-dev/config
+dev/config/*
 !dev/config/configuration.yaml
 !dev/config/automations.yaml
 !dev/config/scripts.yaml

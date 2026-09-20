@@ -1,0 +1,10 @@
+dev_same_edid_select:
+  sequence:
+  - action: select.select_option
+    metadata: {}
+    target:
+      entity_id: select.4kmx44_h2_edid_eingang_4
+    data:
+      option: copy_from_output_4
+  alias: DEV | Same  EDID select
+  description: ''
