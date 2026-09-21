@@ -16,6 +16,7 @@ Tags are named after the version itself, for example `1.0.0`.
 - Skip sending an HDCP command when the input is already in the requested state
 - Stop requesting an extra poll after a command, since the matrix already
   confirms the applied value and the regular poll verifies it
+- Detect the end of a response by a short idle pause as well as by the matrix
 
 ### Fixed
 

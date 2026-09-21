@@ -23,6 +23,7 @@ from .const import (
     CONNECT_TIMEOUT,
     DEFAULT_INPUT_COUNT,
     DEFAULT_OUTPUT_COUNT,
+    IDLE_TIMEOUT,
     MANUFACTURER,
     READ_TIMEOUT,
 )
@@ -595,7 +596,31 @@ class AVAccessClient:
                 if writer.can_write_eof():
                     writer.write_eof()
 
-                raw = await reader.read()
+                # A closing matrix ends the read with EOF right away. A firmware
+                # that keeps the connection open sends the answer in one burst,
+                # so a short pause after the received data marks its end instead
+                # of running into READ_TIMEOUT.
+                chunks: list[bytes] = []
+
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(
+                            reader.read(4096),
+                            timeout=IDLE_TIMEOUT,
+                        )
+
+                    except TimeoutError:
+                        if chunks:
+                            break
+
+                        continue
+
+                    if not chunk:
+                        break
+
+                    chunks.append(chunk)
+
+                raw = b"".join(chunks)
 
         except TimeoutError as err:
             raise AVAccessTimeoutError(

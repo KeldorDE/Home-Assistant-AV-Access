@@ -48,6 +48,11 @@ CONNECT_TIMEOUT = 3.0
 READ_TIMEOUT = 3.0
 CLOSE_TIMEOUT = 1.0
 
+# The matrix normally closes the connection once it has answered, which ends the
+# read. A firmware that keeps the connection open instead is detected by a short
+# pause after the response, so a command does not run into READ_TIMEOUT.
+IDLE_TIMEOUT = 0.3
+
 # Used until the matrix reports a model the port count can be derived from.
 DEFAULT_INPUT_COUNT = 4
 DEFAULT_OUTPUT_COUNT = 4
