@@ -282,11 +282,23 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # previous value in that snapshot and would overwrite the confirmed one
         # when its result is published. The confirmed value therefore stands
         # for every port not read this poll until a later poll reads and
-        # reconciles it.
-        for (section, port), pending in self._pending.items():
-            if (section, port) in read_keys:
+        # reconciles it. Once its window has elapsed the pending value is
+        # dropped, so a change made at the matrix is no longer masked.
+        now = self.hass.loop.time()
+        expired: list[tuple[str, str]] = []
+
+        for key, pending in self._pending.items():
+            if key in read_keys:
                 continue
 
+            if pending.expires_at <= now:
+                expired.append(key)
+                continue
+
+            section, port = key
             status[section][port] = pending.value  # type: ignore[literal-required]
+
+        for key in expired:
+            del self._pending[key]
 
         return status
