@@ -11,6 +11,11 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep an EDID or HDCP value a command confirmed from being reverted by a poll
+  that started before the command and did not read that input in its rotation
+
 ## [1.0.0] - 2026-09-20
 
 ### Fixed

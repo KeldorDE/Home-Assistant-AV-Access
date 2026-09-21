@@ -263,6 +263,8 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # change it. The values are therefore compared with the pending ones
         # after the last read, so a value read before a command does not undo
         # it.
+        read_keys = set(read)
+
         for section, read_port in read:
             values = status[section]  # type: ignore[literal-required]
             values[read_port] = self._async_confirm(
@@ -270,5 +272,18 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
                 read_port,
                 values[read_port],
             )
+
+        # EDID and HDCP are read for a single input per poll, so a command that
+        # changes another input is only carried forward from a snapshot taken
+        # when the poll began. A poll that started before the command holds the
+        # previous value in that snapshot and would overwrite the confirmed one
+        # when its result is published. The confirmed value therefore stands
+        # for every port not read this poll until a later poll reads and
+        # reconciles it.
+        for (section, port), pending in self._pending.items():
+            if (section, port) in read_keys:
+                continue
+
+            status[section][port] = pending.value  # type: ignore[literal-required]
 
         return status
