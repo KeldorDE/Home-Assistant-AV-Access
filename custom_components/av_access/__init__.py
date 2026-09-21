@@ -25,7 +25,6 @@ async def async_setup_entry(
     entry: AVAccessConfigEntry,
 ) -> bool:
     """Set up AV Access HDMI Matrix from a config entry."""
-
     client = AVAccessClient(
         host=entry.data[CONF_HOST],
         port=entry.data[CONF_PORT],
@@ -67,7 +66,6 @@ async def async_unload_entry(
     entry: AVAccessConfigEntry,
 ) -> bool:
     """Unload an AV Access HDMI Matrix config entry."""
-
     return await hass.config_entries.async_unload_platforms(
         entry,
         PLATFORMS,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
@@ -111,7 +113,7 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     _attr_translation_key = TRANSLATION_KEY_INPUT_EDID
     _reports_external_change = True
     # The EDID options are named by the matrix itself and are not renameable.
-    _attr_options = list(EDID_OPTION_BY_VALUE.values())
+    _attr_options: ClassVar[list[str]] = list(EDID_OPTION_BY_VALUE.values())
 
     def __init__(
         self,

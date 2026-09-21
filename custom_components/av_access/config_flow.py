@@ -17,11 +17,7 @@ from homeassistant.helpers.selector import (
     NumberSelectorMode,
 )
 
-from .client import (
-    AVAccessClient,
-    AVAccessDeviceInfo,
-    AVAccessError,
-)
+from .client import AVAccessClient, AVAccessDeviceInfo, AVAccessError
 from .const import (
     CONF_INPUT_LABELS,
     CONF_OUTPUT_LABELS,
@@ -72,7 +68,6 @@ STEP_DATA_SCHEMA = vol.Schema(
 
 async def validate_input(data: dict[str, Any]) -> AVAccessDeviceInfo:
     """Validate that the matrix can be reached and identify it."""
-
     client = AVAccessClient(
         host=data[CONF_HOST],
         port=data[CONF_PORT],
@@ -83,7 +78,6 @@ async def validate_input(data: dict[str, Any]) -> AVAccessDeviceInfo:
 
 def _labels_schema(keys: list[str], stored: dict[str, str]) -> vol.Schema:
     """Return a schema with one optional text field per port."""
-
     return vol.Schema(
         {
             vol.Optional(
@@ -101,7 +95,6 @@ def _merge_labels(
     keys: list[str],
 ) -> dict[str, str]:
     """Apply the submitted names, keeping names of ports not shown in the form."""
-
     merged = dict(stored)
 
     for key in keys:
@@ -134,7 +127,6 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         user_input: dict[str, Any],
     ) -> tuple[AVAccessDeviceInfo | None, dict[str, str]]:
         """Validate the user input and return the device info and any errors."""
-
         errors: dict[str, str] = {}
 
         try:
@@ -161,7 +153,6 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
         """Handle the initial configuration step."""
-
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -191,7 +182,6 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
         """Handle reconfiguration of an existing matrix."""
-
         reconfigure_entry = self._get_reconfigure_entry()
 
         errors: dict[str, str] = {}
@@ -230,7 +220,6 @@ class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
         """Handle the port naming step."""
-
         entry = self.config_entry
 
         # The port counts are only known once the matrix has been queried.
