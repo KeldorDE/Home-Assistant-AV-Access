@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
@@ -38,6 +39,101 @@ class _PendingCommand:
 
     value: int | bool
     expires_at: float
+
+
+class _PendingState:
+    """Track values commands confirmed until the matrix reports them.
+
+    The matrix answers every command with the value it applied, so an entity
+    does not have to wait for the next poll. A poll that started before the
+    command still reports the previous value, so the confirmed one wins until
+    the matrix reports it or the confirmation window elapses. Keeping this in a
+    small object of its own makes the reconciliation testable in isolation.
+    """
+
+    def __init__(self, time: Callable[[], float], timeout: float) -> None:
+        """Initialize the pending state with a clock and a confirmation window."""
+        self._time = time
+        self._timeout = timeout
+        self._pending: dict[tuple[_Section, int], _PendingCommand] = {}
+
+    def record(self, section: _Section, port: int, value: int | bool) -> None:
+        """Remember the value a command confirmed for a port."""
+        self._pending[(section, port)] = _PendingCommand(
+            value=value,
+            expires_at=self._time() + self._timeout,
+        )
+
+    def confirm(self, section: _Section, port: int, value: _ValueT) -> _ValueT:
+        """Return the value to publish for a value read from the matrix.
+
+        Ignore stale poll results while a command awaits confirmation to
+        prevent false external changes. Once the command is no longer recent,
+        accept the matrix's reported value.
+        """
+        key = (section, port)
+        pending = self._pending.get(key)
+
+        if pending is None:
+            return value
+
+        if pending.value == value:
+            del self._pending[key]
+            return value
+
+        if pending.expires_at <= self._time():
+            del self._pending[key]
+
+            _LOGGER.debug(
+                "Matrix reports %s for %s %s instead of the commanded %s",
+                value,
+                section,
+                port,
+                pending.value,
+            )
+
+            return value
+
+        return cast(_ValueT, pending.value)
+
+    def carry(
+        self,
+        status: AVAccessStatus,
+        read_keys: set[tuple[_Section, int]],
+    ) -> None:
+        """Keep confirmed values on ports that were not read this poll.
+
+        EDID and HDCP are read for a single input per poll, so a command that
+        changes another input is only carried forward from a snapshot taken when
+        the poll began. A poll that started before the command holds the previous
+        value in that snapshot and would overwrite the confirmed one when its
+        result is published. The confirmed value therefore stands for every port
+        not read this poll until a later poll reads and reconciles it. Once its
+        window has elapsed the pending value is dropped, so a change made at the
+        matrix is no longer masked.
+        """
+        now = self._time()
+        expired: list[tuple[_Section, int]] = []
+
+        for key, pending in self._pending.items():
+            if key in read_keys:
+                continue
+
+            if pending.expires_at <= now:
+                expired.append(key)
+                continue
+
+            section, port = key
+
+            # The value type differs per section, so narrow before assigning to
+            # keep the write type-safe without ignoring the checker.
+            if section == "hdcp":
+                status["hdcp"][port] = cast(bool, pending.value)
+            else:
+                status[section][port] = cast(int, pending.value)
+
+        for key in expired:
+            del self._pending[key]
 
 
 class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
@@ -79,7 +175,10 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         self._command_update = False
 
         # The values commands confirmed, kept until the matrix reports them.
-        self._pending: dict[tuple[_Section, int], _PendingCommand] = {}
+        self._pending = _PendingState(
+            time=self.hass.loop.time,
+            timeout=COMMAND_CONFIRM_TIMEOUT,
+        )
 
     @property
     def command_update(self) -> bool:
@@ -144,10 +243,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         # A poll that started before the command still reports the previous
         # value, so the confirmed one is kept until the matrix reports it.
-        self._pending[(section, port)] = _PendingCommand(
-            value=value,
-            expires_at=self.hass.loop.time() + COMMAND_CONFIRM_TIMEOUT,
-        )
+        self._pending.record(section, port, value)
 
         self._command_update = True
 
@@ -161,39 +257,6 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         finally:
             self._command_update = False
-
-    @callback
-    def _async_confirm(self, section: _Section, port: int, value: _ValueT) -> _ValueT:
-        """Return the value to publish for a value read from the matrix.
-
-        Ignore stale poll results while a command awaits confirmation to
-        prevent false external changes. Once the command is no longer recent,
-        accept the matrix's reported value.
-        """
-        key = (section, port)
-        pending = self._pending.get(key)
-
-        if pending is None:
-            return value
-
-        if pending.value == value:
-            del self._pending[key]
-            return value
-
-        if pending.expires_at <= self.hass.loop.time():
-            del self._pending[key]
-
-            _LOGGER.debug(
-                "Matrix reports %s for %s %s instead of the commanded %s",
-                value,
-                section,
-                port,
-                pending.value,
-            )
-
-            return value
-
-        return cast(_ValueT, pending.value)
 
     async def _async_update_data(self) -> AVAccessStatus:
         """Fetch the latest state of the matrix."""
@@ -270,52 +333,12 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         for section, read_port in read:
             values = status[section]
-            values[read_port] = self._async_confirm(
+            values[read_port] = self._pending.confirm(
                 section,
                 read_port,
                 values[read_port],
             )
 
-        self._async_carry_pending(status, read_keys)
+        self._pending.carry(status, read_keys)
 
         return status
-
-    @callback
-    def _async_carry_pending(
-        self,
-        status: AVAccessStatus,
-        read_keys: set[tuple[_Section, int]],
-    ) -> None:
-        """Keep confirmed values on ports that were not read this poll.
-
-        EDID and HDCP are read for a single input per poll, so a command that
-        changes another input is only carried forward from a snapshot taken when
-        the poll began. A poll that started before the command holds the previous
-        value in that snapshot and would overwrite the confirmed one when its
-        result is published. The confirmed value therefore stands for every port
-        not read this poll until a later poll reads and reconciles it. Once its
-        window has elapsed the pending value is dropped, so a change made at the
-        matrix is no longer masked.
-        """
-        now = self.hass.loop.time()
-        expired: list[tuple[_Section, int]] = []
-
-        for key, pending in self._pending.items():
-            if key in read_keys:
-                continue
-
-            if pending.expires_at <= now:
-                expired.append(key)
-                continue
-
-            section, port = key
-
-            # The value type differs per section, so narrow before assigning to
-            # keep the write type-safe without ignoring the checker.
-            if section == "hdcp":
-                status["hdcp"][port] = cast(bool, pending.value)
-            else:
-                status[section][port] = cast(int, pending.value)
-
-        for key in expired:
-            del self._pending[key]
