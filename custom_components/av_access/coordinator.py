@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, Literal, TypeVar, cast
 
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant, callback
@@ -27,6 +27,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # The values of the states the matrix reports for a port.
 _ValueT = TypeVar("_ValueT", int, bool)
+
+# The sections of the state, matching the keys of AVAccessStatus.
+_Section = Literal["outputs", "edid", "hdcp"]
 
 
 @dataclass
@@ -76,7 +79,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         self._command_update = False
 
         # The values commands confirmed, kept until the matrix reports them.
-        self._pending: dict[tuple[str, int], _PendingCommand] = {}
+        self._pending: dict[tuple[_Section, int], _PendingCommand] = {}
 
     @property
     def command_update(self) -> bool:
@@ -129,7 +132,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         self._async_apply("hdcp", input_number, confirmed)
 
     @callback
-    def _async_apply(self, section: str, port: int, value: int | bool) -> None:
+    def _async_apply(self, section: _Section, port: int, value: int | bool) -> None:
         """Publish the state the matrix confirmed for a command.
 
         The matrix answers every command with the value it applied, so an entity
@@ -152,7 +155,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             self.async_set_updated_data(
                 {
                     **self.data,
-                    section: {**self.data[section], port: value},  # type: ignore[literal-required]
+                    section: {**self.data[section], port: value},
                 }
             )
 
@@ -160,7 +163,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             self._command_update = False
 
     @callback
-    def _async_confirm(self, section: str, port: int, value: _ValueT) -> _ValueT:
+    def _async_confirm(self, section: _Section, port: int, value: _ValueT) -> _ValueT:
         """Return the value to publish for a value read from the matrix.
 
         Ignore stale poll results while a command awaits confirmation to
@@ -233,7 +236,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         port = input_number
 
         # The values read from the matrix during this poll.
-        read: list[tuple[str, int]] = [
+        read: list[tuple[_Section, int]] = [
             ("outputs", output_port) for output_port in outputs
         ]
 
@@ -266,23 +269,36 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         read_keys = set(read)
 
         for section, read_port in read:
-            values = status[section]  # type: ignore[literal-required]
+            values = status[section]
             values[read_port] = self._async_confirm(
                 section,
                 read_port,
                 values[read_port],
             )
 
-        # EDID and HDCP are read for a single input per poll, so a command that
-        # changes another input is only carried forward from a snapshot taken
-        # when the poll began. A poll that started before the command holds the
-        # previous value in that snapshot and would overwrite the confirmed one
-        # when its result is published. The confirmed value therefore stands
-        # for every port not read this poll until a later poll reads and
-        # reconciles it. Once its window has elapsed the pending value is
-        # dropped, so a change made at the matrix is no longer masked.
+        self._async_carry_pending(status, read_keys)
+
+        return status
+
+    @callback
+    def _async_carry_pending(
+        self,
+        status: AVAccessStatus,
+        read_keys: set[tuple[_Section, int]],
+    ) -> None:
+        """Keep confirmed values on ports that were not read this poll.
+
+        EDID and HDCP are read for a single input per poll, so a command that
+        changes another input is only carried forward from a snapshot taken when
+        the poll began. A poll that started before the command holds the previous
+        value in that snapshot and would overwrite the confirmed one when its
+        result is published. The confirmed value therefore stands for every port
+        not read this poll until a later poll reads and reconciles it. Once its
+        window has elapsed the pending value is dropped, so a change made at the
+        matrix is no longer masked.
+        """
         now = self.hass.loop.time()
-        expired: list[tuple[str, int]] = []
+        expired: list[tuple[_Section, int]] = []
 
         for key, pending in self._pending.items():
             if key in read_keys:
@@ -293,9 +309,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
                 continue
 
             section, port = key
-            status[section][port] = pending.value  # type: ignore[literal-required]
+
+            # The value type differs per section, so narrow before assigning to
+            # keep the write type-safe without ignoring the checker.
+            if section == "hdcp":
+                status["hdcp"][port] = cast(bool, pending.value)
+            else:
+                status[section][port] = cast(int, pending.value)
 
         for key in expired:
             del self._pending[key]
-
-        return status
