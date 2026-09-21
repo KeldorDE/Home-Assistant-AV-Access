@@ -11,6 +11,7 @@ The integration provides native Home Assistant entities for controlling HDMI rou
 * HDMI input selection for each output
 * EDID selection and management
 * HDCP support toggle for each input
+* Audio mute toggle for each output
 * Custom names for inputs and outputs, also available as sensors
 * Native Home Assistant entities
 * Configuration through the Home Assistant UI
@@ -43,8 +44,9 @@ changes when somebody switches at the front panel of the matrix or with the
 remote control. The interval can be changed in the configuration dialog of the
 integration, next to the host and the port. EDID and HDCP cost one command per
 input, so they are read for one input per poll instead of for all of them at
-once. A change made at the device is therefore visible after one rotation over
-all inputs at the latest. A command issued by Home Assistant is confirmed by the
+once. Audio mute states are read for one output per poll as well. A change made
+at the device is therefore visible after one rotation over all inputs or
+outputs at the latest. A command issued by Home Assistant is confirmed by the
 matrix and applied immediately, so an entity never waits for the next poll.
 
 A change the integration finds during a poll was made at the front panel or with
@@ -130,9 +132,10 @@ must be unique.
 A name is also used by the entities that control the port. An output named
 `Living room` turns the select `Output 2` into `Output 2 - Living room`, and an
 input named `Apple TV` turns `EDID - Input 1` into `EDID - Input 1 - Apple TV`
-and `HDCP Input 1` into `HDCP Input 1 - Apple TV`. Ports without a name keep the
-plain name. The name sensors always keep their plain name, because they report
-the port name as their state.
+and `HDCP Input 1` into `HDCP Input 1 - Apple TV`. An output name is also added
+to its audio mute switch. Ports without a name keep the plain name. The name
+sensors always keep their plain name, because they report the port name as
+their state.
 
 Every port also provides a name sensor, so a name can be used in a dashboard,
 for example as a heading above the select of an output. Ports without a name
@@ -148,6 +151,11 @@ a single entity, use the entity settings in Home Assistant.
 Each input provides a switch that enables or disables HDCP support. The
 switches are only created if the matrix reports its HDCP state, so a model
 without HDCP commands simply has no HDCP entities.
+
+### Audio mute
+
+Each output provides a switch that mutes or unmutes its audio. The switch is
+on while the audio is muted.
 
 ## Templates
 

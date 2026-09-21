@@ -30,7 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 _ValueT = TypeVar("_ValueT", int, bool)
 
 # The sections of the state, matching the keys of AVAccessStatus.
-_Section = Literal["outputs", "edid", "hdcp"]
+_Section = Literal["outputs", "edid", "hdcp", "audio_mute"]
 
 
 @dataclass
@@ -103,14 +103,15 @@ class _PendingState:
     ) -> None:
         """Keep confirmed values on ports that were not read this poll.
 
-        EDID and HDCP are read for a single input per poll, so a command that
-        changes another input is only carried forward from a snapshot taken when
-        the poll began. A poll that started before the command holds the previous
-        value in that snapshot and would overwrite the confirmed one when its
-        result is published. The confirmed value therefore stands for every port
-        not read this poll until a later poll reads and reconciles it. Once its
-        window has elapsed the pending value is dropped, so a change made at the
-        matrix is no longer masked.
+        EDID and HDCP are read for a single input per poll, and audio mute is
+        read for a single output per poll. A command that changes another port
+        is only carried forward from a snapshot taken when the poll began. A
+        poll that started before the command holds the previous value in that
+        snapshot and would overwrite the confirmed one when its result is
+        published. The confirmed value therefore stands for every port not read
+        this poll until a later poll reads and reconciles it. Once its window has
+        elapsed the pending value is dropped, so a change made at the matrix is
+        no longer masked.
         """
         now = self._time()
         expired: list[tuple[_Section, int]] = []
@@ -127,8 +128,8 @@ class _PendingState:
 
             # The value type differs per section, so narrow before assigning to
             # keep the write type-safe without ignoring the checker.
-            if section == "hdcp":
-                status["hdcp"][port] = cast(bool, pending.value)
+            if section in ("hdcp", "audio_mute"):
+                status[section][port] = cast(bool, pending.value)
             else:
                 status[section][port] = cast(int, pending.value)
 
@@ -169,6 +170,8 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         # The input whose EDID and HDCP are read during the next poll.
         self._next_input = 1
+        # The output whose audio mute state is read during the next poll.
+        self._next_output = 1
 
         # Set while the state a command confirmed is published, so entities can
         # tell a change they caused from a change made at the device.
@@ -230,13 +233,29 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         self._async_apply("hdcp", input_number, confirmed)
 
+    async def async_set_audio_mute(self, output: int, muted: bool) -> None:
+        """Set the audio mute state of an HDMI output."""
+        current_mute = self.data["audio_mute"].get(output)
+
+        if current_mute == muted:
+            _LOGGER.debug(
+                "Audio for output %d is already %s",
+                output,
+                "muted" if muted else "unmuted",
+            )
+            return
+
+        confirmed = await self.client.async_set_audio_mute(output, muted)
+
+        self._async_apply("audio_mute", output, confirmed)
+
     @callback
     def _async_apply(self, section: _Section, port: int, value: int | bool) -> None:
         """Publish the state the matrix confirmed for a command.
 
         The matrix answers every command with the value it applied, so an entity
         does not have to wait for the next poll. Only the routing is read on
-        every poll, which makes this the timely update for EDID and HDCP.
+        every poll, which makes this the timely update for the rotating states.
         """
         if self.data is None:
             return
@@ -277,8 +296,9 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         """Read the state, sparing the matrix the commands that rarely change.
 
         The matrix processes commands sequentially, so polling all values would
-        keep it busy. Routing is checked every poll, while EDID and HDCP rotate
-        through one input per poll. External changes are detected within one rotation.
+        keep it busy. Routing is checked every poll, while EDID, HDCP and audio
+        mute rotate through one input or output per poll. External changes are
+        detected within one rotation.
         """
         if self.data is None:
             return await self.client.async_get_status()
@@ -287,6 +307,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         edid = dict(self.data["edid"])
         hdcp = dict(self.data["hdcp"])
+        audio_mute = dict(self.data["audio_mute"])
 
         input_number = self._next_input
         input_count = max(self.device_info.input_count, 1)
@@ -319,10 +340,22 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
                 hdcp[port] = state
                 read.append(("hdcp", port))
 
+        output = self._next_output
+        output_count = max(self.device_info.output_count, 1)
+        self._next_output = output % output_count + 1
+
+        if output in audio_mute:
+            state = await self.client.async_get_output_audio_mute(output)
+
+            if state is not None:
+                audio_mute[output] = state
+                read.append(("audio_mute", output))
+
         status: AVAccessStatus = {
             "outputs": outputs,
             "edid": edid,
             "hdcp": hdcp,
+            "audio_mute": audio_mute,
         }
 
         # Reading the whole state takes several seconds, in which a command can

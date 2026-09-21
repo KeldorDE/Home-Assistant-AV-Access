@@ -123,6 +123,12 @@
             },
             "input_hdcp_named": {
                 "name": "HDCP Input {input} - {name}"
+            },
+            "output_audio_mute": {
+                "name": "Audio mute Output {output}"
+            },
+            "output_audio_mute_named": {
+                "name": "Audio mute Output {output} - {name}"
             }
         }
     },

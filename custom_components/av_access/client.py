@@ -40,6 +40,8 @@ COMMAND_EDID = "GET EDID hdmiin{input}"
 COMMAND_SET_EDID = "SET EDID hdmiin{input} {edid}"
 COMMAND_HDCP = "GET HDCP_S hdmiin{input}"
 COMMAND_SET_HDCP = "SET HDCP_S hdmiin{input} {value}"
+COMMAND_AUDIO_MUTE = "GET MUTE audioout{output}"
+COMMAND_SET_AUDIO_MUTE = "SET MUTE audioout{output} {value}"
 
 # The matrix answers a command it does not know with its welcome line, which is
 # also the only place where it reports its model without being asked.
@@ -65,6 +67,10 @@ HDCP_PATTERN = re.compile(
     r"^HDCP_S\s+hdmiin(\d+)\s+(on|off|enabled?|disabled?|1|0)\b",
     re.IGNORECASE,
 )
+AUDIO_MUTE_PATTERN = re.compile(
+    r"^MUTE\s+audioout(\d+)\s+(on|off|enabled?|disabled?|1|0)\b",
+    re.IGNORECASE,
+)
 
 # "4KMX44-H2 VER 1.0, ARM VER 1.0"
 VERSION_PATTERN = re.compile(
@@ -88,6 +94,7 @@ ID_SANITIZE_PATTERN = re.compile(r"[^a-z0-9]+")
 FIRMWARE_LABELS = frozenset({"MCU", "MASTER", "FW", "FIRMWARE"})
 
 HDCP_ON_VALUES = frozenset({"on", "enable", "enabled", "1"})
+AUDIO_MUTE_ON_VALUES = frozenset({"on", "enable", "enabled", "1"})
 
 
 class AVAccessStatus(TypedDict):
@@ -96,6 +103,7 @@ class AVAccessStatus(TypedDict):
     outputs: dict[int, int]
     edid: dict[int, int]
     hdcp: dict[int, bool]
+    audio_mute: dict[int, bool]
 
 
 class AVAccessError(Exception):
@@ -216,6 +224,15 @@ def parse_hdcp_response(response: str, input_number: int) -> bool | None:
     for line in response_lines(response):
         if (match := HDCP_PATTERN.match(line)) and int(match.group(1)) == input_number:
             return match.group(2).lower() in HDCP_ON_VALUES
+
+    return None
+
+
+def parse_audio_mute_response(response: str, output: int) -> bool | None:
+    """Return whether audio is muted for an output."""
+    for line in response_lines(response):
+        if (match := AUDIO_MUTE_PATTERN.match(line)) and int(match.group(1)) == output:
+            return match.group(2).lower() in AUDIO_MUTE_ON_VALUES
 
     return None
 
@@ -407,11 +424,13 @@ class AVAccessClient:
         outputs = await self.async_get_routing()
         edid = await self.async_get_edid()
         hdcp = await self.async_get_hdcp()
+        audio_mute = await self.async_get_audio_mute()
 
         return {
             "outputs": outputs,
             "edid": edid,
             "hdcp": hdcp,
+            "audio_mute": audio_mute,
         }
 
     async def async_get_routing(self) -> dict[int, int]:
@@ -559,6 +578,44 @@ class AVAccessClient:
             raise AVAccessProtocolError(
                 f"The matrix did not confirm the HDCP state of input "
                 f"{input_number}: {response!r}"
+            )
+
+        return confirmed
+
+    async def async_get_audio_mute(self) -> dict[int, bool]:
+        """Return the mute state of every audio output."""
+        audio_mute: dict[int, bool] = {}
+
+        for output in range(1, self._output_count + 1):
+            value = await self.async_get_output_audio_mute(output)
+
+            if value is not None:
+                audio_mute[output] = value
+
+        return audio_mute
+
+    async def async_get_output_audio_mute(self, output: int) -> bool | None:
+        """Return whether audio is muted for an output."""
+        return parse_audio_mute_response(
+            await self.async_send_command(COMMAND_AUDIO_MUTE.format(output=output)),
+            output,
+        )
+
+    async def async_set_audio_mute(self, output: int, muted: bool) -> bool:
+        """Set the audio mute state of an output and return the confirmed state."""
+        response = await self.async_send_command(
+            COMMAND_SET_AUDIO_MUTE.format(
+                output=output,
+                value="on" if muted else "off",
+            )
+        )
+
+        confirmed = parse_audio_mute_response(response, output)
+
+        if confirmed is None:
+            raise AVAccessProtocolError(
+                f"The matrix did not confirm the audio mute state of output "
+                f"{output}: {response!r}"
             )
 
         return confirmed

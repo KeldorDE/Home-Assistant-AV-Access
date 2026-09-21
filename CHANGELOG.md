@@ -11,6 +11,10 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Added
+
+- Add audio mute toggle entities for outputs 1-4
+
 ### Changed
 
 - Skip sending an HDCP command when the input is already in the requested state
