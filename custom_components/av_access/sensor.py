@@ -135,4 +135,4 @@ class AVAccessOutputInputNumberSensor(AVAccessEntity, SensorEntity):
     @property
     def native_value(self) -> int | None:
         """Return the number of the routed input."""
-        return self.coordinator.data["outputs"].get(str(self._output))
+        return self.coordinator.data["outputs"].get(self._output)

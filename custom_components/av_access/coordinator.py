@@ -76,7 +76,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         self._command_update = False
 
         # The values commands confirmed, kept until the matrix reports them.
-        self._pending: dict[tuple[str, str], _PendingCommand] = {}
+        self._pending: dict[tuple[str, int], _PendingCommand] = {}
 
     @property
     def command_update(self) -> bool:
@@ -85,7 +85,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
     async def async_set_output(self, output: int, input_number: int) -> None:
         """Route an HDMI input to an output."""
-        current_input = self.data["outputs"].get(str(output))
+        current_input = self.data["outputs"].get(output)
 
         # Skip sending the command if the output is already set to the desired input.
         if current_input == input_number:
@@ -96,11 +96,11 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         # The matrix confirms the applied value, which is published right away,
         # and the routing is read on every poll, so no extra refresh is needed.
-        self._async_apply("outputs", str(output), confirmed)
+        self._async_apply("outputs", output, confirmed)
 
     async def async_set_edid(self, input_number: int, edid: int) -> None:
         """Set the EDID of an HDMI input."""
-        current_edid = self.data["edid"].get(str(input_number))
+        current_edid = self.data["edid"].get(input_number)
 
         # Skip sending the command if the EDID is already set to the desired value.
         if current_edid == edid:
@@ -109,11 +109,11 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         confirmed = await self.client.async_set_edid(input_number, edid)
 
-        self._async_apply("edid", str(input_number), confirmed)
+        self._async_apply("edid", input_number, confirmed)
 
     async def async_set_hdcp(self, input_number: int, enabled: bool) -> None:
         """Switch HDCP support of an HDMI input."""
-        current_hdcp = self.data["hdcp"].get(str(input_number))
+        current_hdcp = self.data["hdcp"].get(input_number)
 
         # Skip sending the command if HDCP is already in the desired state.
         if current_hdcp == enabled:
@@ -126,10 +126,10 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         confirmed = await self.client.async_set_hdcp(input_number, enabled)
 
-        self._async_apply("hdcp", str(input_number), confirmed)
+        self._async_apply("hdcp", input_number, confirmed)
 
     @callback
-    def _async_apply(self, section: str, port: str, value: int | bool) -> None:
+    def _async_apply(self, section: str, port: int, value: int | bool) -> None:
         """Publish the state the matrix confirmed for a command.
 
         The matrix answers every command with the value it applied, so an entity
@@ -160,7 +160,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             self._command_update = False
 
     @callback
-    def _async_confirm(self, section: str, port: str, value: _ValueT) -> _ValueT:
+    def _async_confirm(self, section: str, port: int, value: _ValueT) -> _ValueT:
         """Return the value to publish for a value read from the matrix.
 
         Ignore stale poll results while a command awaits confirmation to
@@ -230,10 +230,10 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         self._next_input = input_number % input_count + 1
 
-        port = str(input_number)
+        port = input_number
 
         # The values read from the matrix during this poll.
-        read: list[tuple[str, str]] = [
+        read: list[tuple[str, int]] = [
             ("outputs", output_port) for output_port in outputs
         ]
 
@@ -282,7 +282,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # reconciles it. Once its window has elapsed the pending value is
         # dropped, so a change made at the matrix is no longer masked.
         now = self.hass.loop.time()
-        expired: list[tuple[str, str]] = []
+        expired: list[tuple[str, int]] = []
 
         for key, pending in self._pending.items():
             if key in read_keys:

@@ -31,9 +31,9 @@ async def async_setup_entry(
     async_add_entities(
         AVAccessHdcpSwitch(
             coordinator=coordinator,
-            input_number=int(input_number),
+            input_number=input_number,
         )
-        for input_number in sorted(coordinator.data["hdcp"], key=int)
+        for input_number in sorted(coordinator.data["hdcp"])
     )
 
 
@@ -64,7 +64,7 @@ class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):
     @property
     def is_on(self) -> bool | None:
         """Return whether HDCP support is enabled."""
-        return self.coordinator.data["hdcp"].get(str(self._input))
+        return self.coordinator.data["hdcp"].get(self._input)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable HDCP support."""

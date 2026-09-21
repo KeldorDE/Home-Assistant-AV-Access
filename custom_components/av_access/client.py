@@ -93,9 +93,9 @@ HDCP_ON_VALUES = frozenset({"on", "enable", "enabled", "1"})
 class AVAccessStatus(TypedDict):
     """Current state of the matrix, keyed by port number."""
 
-    outputs: dict[str, int]
-    edid: dict[str, int]
-    hdcp: dict[str, bool]
+    outputs: dict[int, int]
+    edid: dict[int, int]
+    hdcp: dict[int, bool]
 
 
 class AVAccessError(Exception):
@@ -172,9 +172,9 @@ def parse_routing_response(
     response: str,
     input_count: int,
     output_count: int,
-) -> dict[str, int]:
+) -> dict[int, int]:
     """Return the input routed to every output reported by the response."""
-    routing: dict[str, int] = {}
+    routing: dict[int, int] = {}
 
     for line in response_lines(response):
         if match := MAPPING_PATTERN.match(line):
@@ -188,7 +188,7 @@ def parse_routing_response(
 
         # A line reporting a port the matrix does not have is not trustworthy.
         if 1 <= input_number <= input_count and 1 <= output <= output_count:
-            routing[str(output)] = input_number
+            routing[output] = input_number
 
     return routing
 
@@ -414,7 +414,7 @@ class AVAccessClient:
             "hdcp": hdcp,
         }
 
-    async def async_get_routing(self) -> dict[str, int]:
+    async def async_get_routing(self) -> dict[int, int]:
         """Return the input that is routed to every output."""
         if self._bulk_routing_supported:
             routing = parse_routing_response(
@@ -435,7 +435,7 @@ class AVAccessClient:
                 COMMAND_ROUTING_ALL,
             )
 
-        routing: dict[str, int] = {}
+        routing: dict[int, int] = {}
 
         for output in range(1, self._output_count + 1):
             routing.update(
@@ -453,15 +453,15 @@ class AVAccessClient:
 
         return routing
 
-    async def async_get_edid(self) -> dict[str, int]:
+    async def async_get_edid(self) -> dict[int, int]:
         """Return the EDID of every input."""
-        edid: dict[str, int] = {}
+        edid: dict[int, int] = {}
 
         for input_number in range(1, self._input_count + 1):
             value = await self.async_get_input_edid(input_number)
 
             if value is not None:
-                edid[str(input_number)] = value
+                edid[input_number] = value
 
         return edid
 
@@ -472,7 +472,7 @@ class AVAccessClient:
             input_number,
         )
 
-    async def async_get_hdcp(self) -> dict[str, bool]:
+    async def async_get_hdcp(self) -> dict[int, bool]:
         """Return the HDCP state of every input.
 
         A matrix without HDCP commands reports no state at all, which keeps the
@@ -481,7 +481,7 @@ class AVAccessClient:
         if not self._hdcp_supported:
             return {}
 
-        hdcp: dict[str, bool] = {}
+        hdcp: dict[int, bool] = {}
 
         for input_number in range(1, self._input_count + 1):
             value = await self.async_get_input_hdcp(input_number)
@@ -498,7 +498,7 @@ class AVAccessClient:
 
                 continue
 
-            hdcp[str(input_number)] = value
+            hdcp[input_number] = value
 
         return hdcp
 

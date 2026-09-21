@@ -87,7 +87,7 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         """Return the currently selected input."""
-        value = self.coordinator.data["outputs"].get(str(self._output))
+        value = self.coordinator.data["outputs"].get(self._output)
 
         if value is None:
             return None
@@ -134,7 +134,7 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         """Return the currently selected EDID."""
-        value = self.coordinator.data["edid"].get(str(self._input))
+        value = self.coordinator.data["edid"].get(self._input)
 
         if value is None:
             return None
