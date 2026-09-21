@@ -14,6 +14,8 @@ Tags are named after the version itself, for example `1.0.0`.
 ### Changed
 
 - Skip sending an HDCP command when the input is already in the requested state
+- Stop requesting an extra poll after a command, since the matrix already
+  confirms the applied value and the regular poll verifies it
 
 ### Fixed
 

@@ -86,10 +86,6 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         """Return whether the current update belongs to a command."""
         return self._command_update
 
-    async def async_refresh_after_command(self) -> None:
-        """Refresh the state after a command."""
-        await self.async_request_refresh()
-
     async def async_set_output(self, output: int, input_number: int) -> None:
         """Route an HDMI input to an output."""
         current_input = self.data["outputs"].get(str(output))
@@ -101,9 +97,9 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         confirmed = await self.client.async_set_output(output, input_number)
 
+        # The matrix confirms the applied value, which is published right away,
+        # and the routing is read on every poll, so no extra refresh is needed.
         self._async_apply("outputs", str(output), confirmed)
-
-        await self.async_refresh_after_command()
 
     async def async_set_edid(self, input_number: int, edid: int) -> None:
         """Set the EDID of an HDMI input."""
@@ -117,8 +113,6 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         confirmed = await self.client.async_set_edid(input_number, edid)
 
         self._async_apply("edid", str(input_number), confirmed)
-
-        await self.async_refresh_after_command()
 
     async def async_set_hdcp(self, input_number: int, enabled: bool) -> None:
         """Switch HDCP support of an HDMI input."""
@@ -136,8 +130,6 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         confirmed = await self.client.async_set_hdcp(input_number, enabled)
 
         self._async_apply("hdcp", str(input_number), confirmed)
-
-        await self.async_refresh_after_command()
 
     @callback
     def _async_apply(self, section: str, port: str, value: int | bool) -> None:
