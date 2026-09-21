@@ -82,6 +82,7 @@ class AVAccessInputNameSensor(AVAccessEntity, SensorEntity):
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_input_{input_number}_name"
         )
+        self._attr_icon = "mdi:video-input-hdmi"
 
 
 class AVAccessOutputNameSensor(AVAccessEntity, SensorEntity):
@@ -105,6 +106,7 @@ class AVAccessOutputNameSensor(AVAccessEntity, SensorEntity):
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_name"
         )
+        self._attr_icon = "mdi:hdmi-port"
 
 
 class AVAccessOutputInputNumberSensor(AVAccessEntity, SensorEntity):
@@ -131,6 +133,7 @@ class AVAccessOutputInputNumberSensor(AVAccessEntity, SensorEntity):
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_input_number"
         )
+        self._attr_icon = "mdi:hdmi-port"
 
     @property
     def native_value(self) -> int | None:
