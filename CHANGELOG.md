@@ -14,9 +14,15 @@ Tags are named after the version itself, for example `1.0.0`.
 ### Added
 
 - Add audio mute toggle entities for outputs 1-4
+- Add CEC entities for every output
+- Add buttons for manual power on and off
+- Add a switch for the automatic power function
+- Add a number field for the automatic power delay time
 
 ### Changed
 
+- Extend the confirmation window of a command to 15 seconds, so a poll that
+  started before it can no longer drop the confirmed value
 - Skip sending an HDCP command when the input is already in the requested state
 - Skip extra polling after commands; regular polling verifies confirmed changes
 - Detect response completion by idle pause or connection closure to prevent read timeouts

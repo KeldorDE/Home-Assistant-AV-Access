@@ -11,6 +11,8 @@ from .client import AVAccessClient, AVAccessError
 from .coordinator import AVAccessCoordinator
 
 PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
+    Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,

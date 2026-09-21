@@ -30,7 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 _ValueT = TypeVar("_ValueT", int, bool)
 
 # The sections of the state, matching the keys of AVAccessStatus.
-_Section = Literal["outputs", "edid", "hdcp", "audio_mute"]
+_Section = Literal["outputs", "edid", "hdcp", "audio_mute", "cec_auto", "cec_delay"]
+
+# The sections whose values are boolean, which the reconciliation has to know
+# to keep the writes to the status type-safe.
+_BOOL_SECTIONS: tuple[_Section, ...] = ("hdcp", "audio_mute", "cec_auto")
 
 
 @dataclass
@@ -103,8 +107,9 @@ class _PendingState:
     ) -> None:
         """Keep confirmed values on ports that were not read this poll.
 
-        EDID and HDCP are read for a single input per poll, and audio mute is
-        read for a single output per poll. A command that changes another port
+        EDID and HDCP are read for a single input per poll, and audio mute and
+        the CEC settings are read for a single output per poll. A command that
+        changes another port
         is only carried forward from a snapshot taken when the poll began. A
         poll that started before the command holds the previous value in that
         snapshot and would overwrite the confirmed one when its result is
@@ -128,7 +133,7 @@ class _PendingState:
 
             # The value type differs per section, so narrow before assigning to
             # keep the write type-safe without ignoring the checker.
-            if section in ("hdcp", "audio_mute"):
+            if section in _BOOL_SECTIONS:
                 status[section][port] = cast(bool, pending.value)
             else:
                 status[section][port] = cast(int, pending.value)
@@ -249,6 +254,46 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         self._async_apply("audio_mute", output, confirmed)
 
+    async def async_set_cec_auto(self, output: int, enabled: bool) -> None:
+        """Switch the automatic CEC power function of an HDMI output."""
+        current_auto = self.data["cec_auto"].get(output)
+
+        if current_auto == enabled:
+            _LOGGER.debug(
+                "Automatic CEC power for output %d is already %s",
+                output,
+                "on" if enabled else "off",
+            )
+            return
+
+        confirmed = await self.client.async_set_cec_auto(output, enabled)
+
+        self._async_apply("cec_auto", output, confirmed)
+
+    async def async_set_cec_delay(self, output: int, minutes: int) -> None:
+        """Set the automatic CEC power off delay of an HDMI output."""
+        current_delay = self.data["cec_delay"].get(output)
+
+        if current_delay == minutes:
+            _LOGGER.debug(
+                "CEC power off delay for output %d is already %d minutes",
+                output,
+                minutes,
+            )
+            return
+
+        confirmed = await self.client.async_set_cec_delay(output, minutes)
+
+        self._async_apply("cec_delay", output, confirmed)
+
+    async def async_set_cec_power(self, output: int, power_on: bool) -> None:
+        """Power the sink of an HDMI output on or off over CEC.
+
+        The matrix does not report the power state of a sink, so there is no
+        state to publish and nothing to reconcile with a later poll.
+        """
+        await self.client.async_set_cec_power(output, power_on)
+
     @callback
     def _async_apply(self, section: _Section, port: int, value: int | bool) -> None:
         """Publish the state the matrix confirmed for a command.
@@ -296,9 +341,10 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         """Read the state, sparing the matrix the commands that rarely change.
 
         The matrix processes commands sequentially, so polling all values would
-        keep it busy. Routing is checked every poll, while EDID, HDCP and audio
-        mute rotate through one input or output per poll. External changes are
-        detected within one rotation.
+        keep it busy. Routing is checked every poll, while EDID and HDCP rotate
+        through one input per poll and audio mute and the CEC settings rotate
+        through one output per poll. External changes are detected within one
+        rotation.
         """
         if self.data is None:
             return await self.client.async_get_status()
@@ -308,54 +354,24 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         edid = dict(self.data["edid"])
         hdcp = dict(self.data["hdcp"])
         audio_mute = dict(self.data["audio_mute"])
-
-        input_number = self._next_input
-        input_count = max(self.device_info.input_count, 1)
-
-        if input_number > input_count:
-            input_number = 1
-
-        self._next_input = input_number % input_count + 1
-
-        port = input_number
+        cec_auto = dict(self.data["cec_auto"])
+        cec_delay = dict(self.data["cec_delay"])
 
         # The values read from the matrix during this poll.
         read: list[tuple[_Section, int]] = [
             ("outputs", output_port) for output_port in outputs
         ]
 
-        # Only ports the matrix already reported have entities, so no unknown
-        # port is queried and no entity appears after the setup.
-        if port in edid:
-            value = await self.client.async_get_input_edid(input_number)
-
-            if value is not None:
-                edid[port] = value
-                read.append(("edid", port))
-
-        if port in hdcp:
-            state = await self.client.async_get_input_hdcp(input_number)
-
-            if state is not None:
-                hdcp[port] = state
-                read.append(("hdcp", port))
-
-        output = self._next_output
-        output_count = max(self.device_info.output_count, 1)
-        self._next_output = output % output_count + 1
-
-        if output in audio_mute:
-            state = await self.client.async_get_output_audio_mute(output)
-
-            if state is not None:
-                audio_mute[output] = state
-                read.append(("audio_mute", output))
+        await self._async_read_input_states(edid, hdcp, read)
+        await self._async_read_output_states(audio_mute, cec_auto, cec_delay, read)
 
         status: AVAccessStatus = {
             "outputs": outputs,
             "edid": edid,
             "hdcp": hdcp,
             "audio_mute": audio_mute,
+            "cec_auto": cec_auto,
+            "cec_delay": cec_delay,
         }
 
         # Reading the whole state takes several seconds, in which a command can
@@ -375,3 +391,71 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         self._pending.carry(status, read_keys)
 
         return status
+
+    async def _async_read_input_states(
+        self,
+        edid: dict[int, int],
+        hdcp: dict[int, bool],
+        read: list[tuple[_Section, int]],
+    ) -> None:
+        """Read the rotating states of the next input into the given values."""
+        input_number = self._next_input
+        input_count = max(self.device_info.input_count, 1)
+
+        if input_number > input_count:
+            input_number = 1
+
+        self._next_input = input_number % input_count + 1
+
+        # Only ports the matrix already reported have entities, so no unknown
+        # port is queried and no entity appears after the setup.
+        if input_number in edid:
+            value = await self.client.async_get_input_edid(input_number)
+
+            if value is not None:
+                edid[input_number] = value
+                read.append(("edid", input_number))
+
+        if input_number in hdcp:
+            state = await self.client.async_get_input_hdcp(input_number)
+
+            if state is not None:
+                hdcp[input_number] = state
+                read.append(("hdcp", input_number))
+
+    async def _async_read_output_states(
+        self,
+        audio_mute: dict[int, bool],
+        cec_auto: dict[int, bool],
+        cec_delay: dict[int, int],
+        read: list[tuple[_Section, int]],
+    ) -> None:
+        """Read the rotating states of the next output into the given values."""
+        output = self._next_output
+        output_count = max(self.device_info.output_count, 1)
+
+        if output > output_count:
+            output = 1
+
+        self._next_output = output % output_count + 1
+
+        if output in audio_mute:
+            muted = await self.client.async_get_output_audio_mute(output)
+
+            if muted is not None:
+                audio_mute[output] = muted
+                read.append(("audio_mute", output))
+
+        if output in cec_auto:
+            enabled = await self.client.async_get_output_cec_auto(output)
+
+            if enabled is not None:
+                cec_auto[output] = enabled
+                read.append(("cec_auto", output))
+
+        if output in cec_delay:
+            minutes = await self.client.async_get_output_cec_delay(output)
+
+            if minutes is not None:
+                cec_delay[output] = minutes
+                read.append(("cec_delay", output))

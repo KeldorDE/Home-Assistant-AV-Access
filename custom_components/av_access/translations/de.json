@@ -38,6 +38,28 @@
         }
     },
     "entity": {
+        "button": {
+            "output_cec_power_off": {
+                "name": "CEC ausschalten – Ausgang {output}"
+            },
+            "output_cec_power_off_named": {
+                "name": "CEC ausschalten – Ausgang {output} – {name}"
+            },
+            "output_cec_power_on": {
+                "name": "CEC einschalten – Ausgang {output}"
+            },
+            "output_cec_power_on_named": {
+                "name": "CEC einschalten – Ausgang {output} – {name}"
+            }
+        },
+        "number": {
+            "output_cec_delay": {
+                "name": "CEC Verzögerung – Ausgang {output}"
+            },
+            "output_cec_delay_named": {
+                "name": "CEC Verzögerung – Ausgang {output} – {name}"
+            }
+        },
         "select": {
             "input_edid": {
                 "name": "EDID - Eingang {input}",
@@ -129,6 +151,12 @@
             },
             "output_audio_mute_named": {
                 "name": "Audio stummschalten – Ausgang {output} – {name}"
+            },
+            "output_cec_auto": {
+                "name": "Auto CEC – Ausgang {output}"
+            },
+            "output_cec_auto_named": {
+                "name": "Auto CEC – Ausgang {output} – {name}"
             }
         }
     },

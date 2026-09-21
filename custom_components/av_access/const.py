@@ -41,9 +41,11 @@ COMMAND_DELAY = 1.0
 
 # Seconds a value a command confirmed wins over a value read from the matrix.
 # A poll that started before the command still reports the previous value and
-# would otherwise look like a change made at the front panel. After this window
-# the matrix is believed again, so a state it really keeps is not hidden.
-COMMAND_CONFIRM_TIMEOUT = 10.0
+# would otherwise look like a change made at the front panel. The window
+# therefore has to outlast a whole poll, which takes about six seconds with all
+# the commands of a rotation. After it the matrix is believed again, so a state
+# it really keeps is not hidden.
+COMMAND_CONFIRM_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 3.0
 READ_TIMEOUT = 3.0
 CLOSE_TIMEOUT = 1.0
@@ -63,6 +65,10 @@ TRANSLATION_KEY_OUTPUT_INPUT = "output_input"
 TRANSLATION_KEY_INPUT_EDID = "input_edid"
 TRANSLATION_KEY_INPUT_HDCP = "input_hdcp"
 TRANSLATION_KEY_OUTPUT_AUDIO_MUTE = "output_audio_mute"
+TRANSLATION_KEY_OUTPUT_CEC_AUTO = "output_cec_auto"
+TRANSLATION_KEY_OUTPUT_CEC_DELAY = "output_cec_delay"
+TRANSLATION_KEY_OUTPUT_CEC_POWER_ON = "output_cec_power_on"
+TRANSLATION_KEY_OUTPUT_CEC_POWER_OFF = "output_cec_power_off"
 TRANSLATION_KEY_INPUT_NAME = "input_name"
 TRANSLATION_KEY_OUTPUT_NAME = "output_name"
 TRANSLATION_KEY_OUTPUT_INPUT_NUMBER = "output_input_number"
@@ -75,6 +81,11 @@ TRANSLATION_KEY_NAMED_SUFFIX = "_named"
 PLACEHOLDER_INPUT = "input"
 PLACEHOLDER_OUTPUT = "output"
 PLACEHOLDER_NAME = "name"
+
+# Minutes without an active signal after which the automatic CEC power off of
+# an output is triggered. The matrix accepts whole minutes in this range only.
+CEC_DELAY_MIN = 1
+CEC_DELAY_MAX = 30
 
 # The matrix expects and reports the EDID as a number.
 EDID_OPTION_BY_VALUE: dict[int, str] = {

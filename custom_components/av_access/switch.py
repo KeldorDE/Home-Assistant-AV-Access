@@ -10,7 +10,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import AVAccessConfigEntry
-from .const import TRANSLATION_KEY_INPUT_HDCP, TRANSLATION_KEY_OUTPUT_AUDIO_MUTE
+from .const import (
+    TRANSLATION_KEY_INPUT_HDCP,
+    TRANSLATION_KEY_OUTPUT_AUDIO_MUTE,
+    TRANSLATION_KEY_OUTPUT_CEC_AUTO,
+)
 from .coordinator import AVAccessCoordinator
 from .entity import AVAccessEntity
 
@@ -41,6 +45,15 @@ async def async_setup_entry(
             output=output,
         )
         for output in sorted(coordinator.data["audio_mute"])
+    )
+
+    # A matrix that does not support CEC reports no CEC state at all.
+    async_add_entities(
+        AVAccessCecAutoSwitch(
+            coordinator=coordinator,
+            output=output,
+        )
+        for output in sorted(coordinator.data["cec_auto"])
     )
 
 
@@ -135,3 +148,50 @@ class AVAccessAudioMuteSwitch(AVAccessEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Unmute the output audio."""
         await self.coordinator.async_set_audio_mute(self._output, False)
+
+
+class AVAccessCecAutoSwitch(AVAccessEntity, SwitchEntity):
+    """Enable or disable the automatic CEC power function of a matrix output.
+
+    While it is on, the matrix powers the sink of the output off over CEC once
+    the output has been without an active signal for the configured delay.
+    """
+
+    _attr_translation_key = TRANSLATION_KEY_OUTPUT_CEC_AUTO
+    _reports_external_change = True
+    _attr_device_class = SwitchDeviceClass.SWITCH
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: AVAccessCoordinator,
+        output: int,
+    ) -> None:
+        """Initialize the automatic CEC power switch."""
+        super().__init__(coordinator)
+
+        self._output = output
+
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_output_{output}_cec_auto"
+        )
+
+        self._name_after_output(output)
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return whether the automatic CEC power function is enabled."""
+        return self.coordinator.data["cec_auto"].get(self._output)
+
+    @property
+    def icon(self) -> str:
+        """Return the icon for the current state of the function."""
+        return "mdi:television-clean" if self.is_on else "mdi:television-off"
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable the automatic CEC power function."""
+        await self.coordinator.async_set_cec_auto(self._output, True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable the automatic CEC power function."""
+        await self.coordinator.async_set_cec_auto(self._output, False)

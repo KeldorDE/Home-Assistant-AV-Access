@@ -42,6 +42,11 @@ COMMAND_HDCP = "GET HDCP_S hdmiin{input}"
 COMMAND_SET_HDCP = "SET HDCP_S hdmiin{input} {value}"
 COMMAND_AUDIO_MUTE = "GET MUTE audioout{output}"
 COMMAND_SET_AUDIO_MUTE = "SET MUTE audioout{output} {value}"
+COMMAND_CEC_AUTO = "GET AUTOCEC_FN hdmiout{output}"
+COMMAND_SET_CEC_AUTO = "SET AUTOCEC_FN hdmiout{output} {value}"
+COMMAND_CEC_DELAY = "GET AUTOCEC_D hdmiout{output}"
+COMMAND_SET_CEC_DELAY = "SET AUTOCEC_D hdmiout{output} {minutes}"
+COMMAND_SET_CEC_POWER = "SET CEC_PWR hdmiout{output} {value}"
 
 # The matrix answers a command it does not know with its welcome line, which is
 # also the only place where it reports its model without being asked.
@@ -72,6 +77,21 @@ AUDIO_MUTE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# The command set documents "AUTOCEC_FN hdmiout1 on" as the answer, while its
+# own example shows "AUTOCEC_FN on", so the port is accepted but not required.
+CEC_AUTO_PATTERN = re.compile(
+    r"^AUTOCEC_FN\s+(?:hdmiout(\d+)\s+)?(on|off|enabled?|disabled?|1|0)\b",
+    re.IGNORECASE,
+)
+CEC_DELAY_PATTERN = re.compile(
+    r"^AUTOCEC_D\s+(?:hdmiout(\d+)\s+)?(\d+)\b",
+    re.IGNORECASE,
+)
+CEC_POWER_PATTERN = re.compile(
+    r"^CEC_PWR\s+(?:hdmiout(\d+)|all)\s+(on|off)\b",
+    re.IGNORECASE,
+)
+
 # "4KMX44-H2 VER 1.0, ARM VER 1.0"
 VERSION_PATTERN = re.compile(
     r"([A-Za-z0-9][A-Za-z0-9._-]*)\s+VER\s+(V?\d[\w.-]*)",
@@ -95,6 +115,7 @@ FIRMWARE_LABELS = frozenset({"MCU", "MASTER", "FW", "FIRMWARE"})
 
 HDCP_ON_VALUES = frozenset({"on", "enable", "enabled", "1"})
 AUDIO_MUTE_ON_VALUES = frozenset({"on", "enable", "enabled", "1"})
+CEC_AUTO_ON_VALUES = frozenset({"on", "enable", "enabled", "1"})
 
 
 class AVAccessStatus(TypedDict):
@@ -104,6 +125,8 @@ class AVAccessStatus(TypedDict):
     edid: dict[int, int]
     hdcp: dict[int, bool]
     audio_mute: dict[int, bool]
+    cec_auto: dict[int, bool]
+    cec_delay: dict[int, int]
 
 
 class AVAccessError(Exception):
@@ -237,6 +260,39 @@ def parse_audio_mute_response(response: str, output: int) -> bool | None:
     return None
 
 
+def parse_cec_auto_response(response: str, output: int) -> bool | None:
+    """Return whether automatic CEC power is enabled for an output."""
+    for line in response_lines(response):
+        if (match := CEC_AUTO_PATTERN.match(line)) and (
+            match.group(1) is None or int(match.group(1)) == output
+        ):
+            return match.group(2).lower() in CEC_AUTO_ON_VALUES
+
+    return None
+
+
+def parse_cec_delay_response(response: str, output: int) -> int | None:
+    """Return the automatic CEC power off delay of an output in minutes."""
+    for line in response_lines(response):
+        if (match := CEC_DELAY_PATTERN.match(line)) and (
+            match.group(1) is None or int(match.group(1)) == output
+        ):
+            return int(match.group(2))
+
+    return None
+
+
+def parse_cec_power_response(response: str, output: int) -> bool | None:
+    """Return the CEC power command the matrix confirmed for an output."""
+    for line in response_lines(response):
+        if (match := CEC_POWER_PATTERN.match(line)) and (
+            match.group(1) is None or int(match.group(1)) == output
+        ):
+            return match.group(2).lower() == "on"
+
+    return None
+
+
 def parse_version_response(response: str) -> VersionInfo:
     """Return the model and the firmware versions from a ``GET VER`` response."""
     model: str | None = None
@@ -339,6 +395,7 @@ class AVAccessClient:
 
         self._bulk_routing_supported = True
         self._hdcp_supported = True
+        self._cec_supported = True
 
     @property
     def host(self) -> str:
@@ -354,6 +411,11 @@ class AVAccessClient:
     def hdcp_supported(self) -> bool:
         """Return whether the matrix understands the HDCP commands."""
         return self._hdcp_supported
+
+    @property
+    def cec_supported(self) -> bool:
+        """Return whether the matrix understands the CEC commands."""
+        return self._cec_supported
 
     async def async_send_command(self, command: str) -> str:
         """Send a command to the matrix and return its raw response.
@@ -425,12 +487,16 @@ class AVAccessClient:
         edid = await self.async_get_edid()
         hdcp = await self.async_get_hdcp()
         audio_mute = await self.async_get_audio_mute()
+        cec_auto = await self.async_get_cec_auto()
+        cec_delay = await self.async_get_cec_delay()
 
         return {
             "outputs": outputs,
             "edid": edid,
             "hdcp": hdcp,
             "audio_mute": audio_mute,
+            "cec_auto": cec_auto,
+            "cec_delay": cec_delay,
         }
 
     async def async_get_routing(self) -> dict[int, int]:
@@ -615,6 +681,129 @@ class AVAccessClient:
         if confirmed is None:
             raise AVAccessProtocolError(
                 f"The matrix did not confirm the audio mute state of output "
+                f"{output}: {response!r}"
+            )
+
+        return confirmed
+
+    async def async_get_cec_auto(self) -> dict[int, bool]:
+        """Return the automatic CEC power state of every output.
+
+        A matrix without CEC commands reports no state at all, which keeps the
+        CEC entities from being created.
+        """
+        if not self._cec_supported:
+            return {}
+
+        cec_auto: dict[int, bool] = {}
+
+        for output in range(1, self._output_count + 1):
+            value = await self.async_get_output_cec_auto(output)
+
+            if value is None:
+                # Unknown commands are answered with the welcome line, so a
+                # matrix without CEC support is recognized on the first output.
+                if not cec_auto:
+                    self._cec_supported = False
+
+                    _LOGGER.debug("The matrix does not support CEC commands")
+
+                    return {}
+
+                continue
+
+            cec_auto[output] = value
+
+        return cec_auto
+
+    async def async_get_output_cec_auto(self, output: int) -> bool | None:
+        """Return whether automatic CEC power is enabled for an output."""
+        if not self._cec_supported:
+            return None
+
+        return parse_cec_auto_response(
+            await self.async_send_command(COMMAND_CEC_AUTO.format(output=output)),
+            output,
+        )
+
+    async def async_get_cec_delay(self) -> dict[int, int]:
+        """Return the automatic CEC power off delay of every output."""
+        if not self._cec_supported:
+            return {}
+
+        cec_delay: dict[int, int] = {}
+
+        for output in range(1, self._output_count + 1):
+            value = await self.async_get_output_cec_delay(output)
+
+            if value is not None:
+                cec_delay[output] = value
+
+        return cec_delay
+
+    async def async_get_output_cec_delay(self, output: int) -> int | None:
+        """Return the automatic CEC power off delay of an output in minutes."""
+        if not self._cec_supported:
+            return None
+
+        return parse_cec_delay_response(
+            await self.async_send_command(COMMAND_CEC_DELAY.format(output=output)),
+            output,
+        )
+
+    async def async_set_cec_auto(self, output: int, enabled: bool) -> bool:
+        """Switch automatic CEC power of an output and return the confirmed state."""
+        response = await self.async_send_command(
+            COMMAND_SET_CEC_AUTO.format(
+                output=output,
+                value="on" if enabled else "off",
+            )
+        )
+
+        confirmed = parse_cec_auto_response(response, output)
+
+        if confirmed is None:
+            raise AVAccessProtocolError(
+                f"The matrix did not confirm the automatic CEC power state of "
+                f"output {output}: {response!r}"
+            )
+
+        return confirmed
+
+    async def async_set_cec_delay(self, output: int, minutes: int) -> int:
+        """Set the CEC power off delay of an output and return the confirmed value."""
+        response = await self.async_send_command(
+            COMMAND_SET_CEC_DELAY.format(output=output, minutes=minutes)
+        )
+
+        confirmed = parse_cec_delay_response(response, output)
+
+        if confirmed is None:
+            raise AVAccessProtocolError(
+                f"The matrix did not confirm the CEC power off delay of output "
+                f"{output}: {response!r}"
+            )
+
+        return confirmed
+
+    async def async_set_cec_power(self, output: int, power_on: bool) -> bool:
+        """Send a CEC power command to the sink of an output.
+
+        The matrix only passes the command on to the sink and does not report
+        its power state, so the confirmation is the only feedback there is.
+        """
+        response = await self.async_send_command(
+            COMMAND_SET_CEC_POWER.format(
+                output=output,
+                value="on" if power_on else "off",
+            )
+        )
+
+        confirmed = parse_cec_power_response(response, output)
+
+        if confirmed is None:
+            raise AVAccessProtocolError(
+                f"The matrix did not confirm the CEC power command for output "
                 f"{output}: {response!r}"
             )
 

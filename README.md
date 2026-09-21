@@ -12,6 +12,7 @@ The integration provides native Home Assistant entities for controlling HDMI rou
 * EDID selection and management
 * HDCP support toggle for each input
 * Audio mute toggle for each output
+* CEC control for each output: manual power on/off, automatic power function and delay time
 * Custom names for inputs and outputs, also available as sensors
 * Native Home Assistant entities
 * Configuration through the Home Assistant UI
@@ -44,7 +45,8 @@ changes when somebody switches at the front panel of the matrix or with the
 remote control. The interval can be changed in the configuration dialog of the
 integration, next to the host and the port. EDID and HDCP cost one command per
 input, so they are read for one input per poll instead of for all of them at
-once. Audio mute states are read for one output per poll as well. A change made
+once. Audio mute states and the CEC settings are read for one output per poll
+as well. A change made
 at the device is therefore visible after one rotation over all inputs or
 outputs at the latest. A command issued by Home Assistant is confirmed by the
 matrix and applied immediately, so an entity never waits for the next poll.
@@ -133,7 +135,8 @@ A name is also used by the entities that control the port. An output named
 `Living room` turns the select `Output 2` into `Output 2 - Living room`, and an
 input named `Apple TV` turns `EDID - Input 1` into `EDID - Input 1 - Apple TV`
 and `HDCP Input 1` into `HDCP Input 1 - Apple TV`. An output name is also added
-to its audio mute switch. Ports without a name keep the plain name. The name
+to its audio mute switch and to its CEC entities. Ports without a name keep the
+plain name. The name
 sensors always keep their plain name, because they report the port name as
 their state.
 
@@ -156,6 +159,22 @@ without HDCP commands simply has no HDCP entities.
 
 Each output provides a switch that mutes or unmutes its audio. The switch is
 on while the audio is muted.
+
+### CEC
+
+Each output provides the CEC functions of the matrix, mirroring the CEC section
+of its web interface:
+
+* Two buttons that power the connected sink on or off over CEC. The matrix only
+  passes the command on to the sink and never reports its power state, which is
+  why these are buttons instead of a switch.
+* A switch for the automatic CEC power function. While it is on, the matrix
+  powers the sink off once the output has been without an active signal for the
+  delay time.
+* A number with the delay time in minutes, between 1 and 30 minutes.
+
+The CEC entities are only created if the matrix reports its CEC state, so a
+model without CEC commands simply has no CEC entities.
 
 ## Templates
 
