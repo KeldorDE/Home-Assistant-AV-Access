@@ -11,6 +11,10 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Changed
+
+- Skip sending an HDCP command when the input is already in the requested state
+
 ### Fixed
 
 - Keep an EDID or HDCP value a command confirmed from being reverted by a poll

@@ -122,6 +122,17 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
     async def async_set_hdcp(self, input_number: int, enabled: bool) -> None:
         """Switch HDCP support of an HDMI input."""
+        current_hdcp = self.data["hdcp"].get(str(input_number))
+
+        # Skip sending the command if HDCP is already in the desired state.
+        if current_hdcp == enabled:
+            _LOGGER.debug(
+                "HDCP for input %d is already %s",
+                input_number,
+                "on" if enabled else "off",
+            )
+            return
+
         confirmed = await self.client.async_set_hdcp(input_number, enabled)
 
         self._async_apply("hdcp", str(input_number), confirmed)
