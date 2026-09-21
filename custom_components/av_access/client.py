@@ -417,8 +417,10 @@ class AVAccessClient:
     async def async_get_routing(self) -> dict[str, int]:
         """Return the input that is routed to every output."""
         if self._bulk_routing_supported:
-            routing = self._parse_routing(
-                await self.async_send_command(COMMAND_ROUTING_ALL)
+            routing = parse_routing_response(
+                await self.async_send_command(COMMAND_ROUTING_ALL),
+                input_count=self._input_count,
+                output_count=self._output_count,
             )
 
             if routing:
@@ -437,10 +439,12 @@ class AVAccessClient:
 
         for output in range(1, self._output_count + 1):
             routing.update(
-                self._parse_routing(
+                parse_routing_response(
                     await self.async_send_command(
                         COMMAND_ROUTING.format(output=output)
-                    )
+                    ),
+                    input_count=self._input_count,
+                    output_count=self._output_count,
                 )
             )
 
@@ -558,14 +562,6 @@ class AVAccessClient:
             )
 
         return confirmed
-
-    def _parse_routing(self, response: str) -> dict[str, int]:
-        """Return the routing of a response, limited to the existing ports."""
-        return parse_routing_response(
-            response,
-            input_count=self._input_count,
-            output_count=self._output_count,
-        )
 
     async def _async_execute_command(self, command: str) -> str:
         """Open a connection, send one command and read the whole response."""
