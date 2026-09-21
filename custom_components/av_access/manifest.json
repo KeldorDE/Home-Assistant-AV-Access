@@ -9,6 +9,9 @@
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/KeldorDE/Home-Assistant-AV-Access/issues",
+  "loggers": [
+    "custom_components.av_access"
+  ],
   "requirements": [],
   "version": "1.0.0"
 }
