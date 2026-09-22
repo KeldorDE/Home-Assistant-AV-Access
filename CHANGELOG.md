@@ -11,6 +11,8 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-22
+
 ### Added
 
 - Add audio mute toggle entities for outputs 1-4
@@ -21,8 +23,7 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ### Changed
 
-- Extend the confirmation window of a command to 15 seconds, so a poll that
-  started before it can no longer drop the confirmed value
+- Extend the confirmation window of a command to 15 seconds
 - Skip sending an HDCP command when the input is already in the requested state
 - Skip extra polling after commands; regular polling verifies confirmed changes
 - Detect response completion by idle pause or connection closure to prevent read timeouts
