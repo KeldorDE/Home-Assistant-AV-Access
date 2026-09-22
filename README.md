@@ -4,9 +4,9 @@ Custom Home Assistant integration for controlling AV Access HDMI matrix switches
 
 The integration provides native Home Assistant entities for controlling HDMI routing and other supported matrix functions.
 
-![Showcase Quick Profiles](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/refs/heads/main/docs/images/showcase-quick-profiles.webp)
+![Showcase Quick Profiles](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/refs/heads/main/docs/images/showcase-quick-profiles.png)
 
-![Showcase EDID Select](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/refs/heads/main/docs/images/showcase-edid-select.webp)
+![Showcase EDID Select](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/refs/heads/main/docs/images/showcase-edid-select.png)
 
 ## Features
 
