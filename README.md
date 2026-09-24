@@ -186,9 +186,13 @@ Combined with `state_translated`, the EDID that currently applies to an output
 can be resolved without a helper entity:
 
 ```jinja
-{% set input = states('sensor.av_access_output_1_input_number') %}
-{{ state_translated('select.av_access_input_' ~ input ~ '_edid') }}
+{% set input = states('sensor.4kmx44_h2_output_1_input_number') %}
+{{ state_translated('select.4kmx44_h2_edid_input_' ~ input) }}
 ```
+
+The `4kmx44_h2` part of the entity ID is derived from the model of the matrix,
+so it looks different for another device. Check **Developer tools → States**
+for the actual entity IDs of your matrix.
 
 ## Diagnostics
 
