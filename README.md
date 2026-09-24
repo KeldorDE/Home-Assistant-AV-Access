@@ -118,6 +118,7 @@ The integration is configured through the Home Assistant UI:
 | --- | --- | --- |
 | Host | yes | Address of the AV Access HDMI matrix. |
 | Port | yes | Telnet port of the matrix. Defaults to `23`. |
+| Polling interval | yes | Seconds between queries to the matrix. Defaults to `3`, between `1` and `300`. |
 
 Model, firmware version, the number of inputs and outputs and the link to the
 matrix web interface are read from the matrix, so the entities match the
