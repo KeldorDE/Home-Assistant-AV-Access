@@ -375,6 +375,18 @@ def build_unique_id(model: str | None, host: str) -> str:
     return ID_SANITIZE_PATTERN.sub("-", base.lower()).strip("-")
 
 
+def is_same_device(unique_id: str | None, model: str | None, host: str) -> bool:
+    """Return whether a unique ID describes the given model at the given address.
+
+    The ID of an entry also holds the address it was created with, so the model
+    is compared against the ID the known address would produce.
+    """
+    if unique_id is None:
+        return False
+
+    return unique_id == build_unique_id(model, host)
+
+
 class AVAccessClient:
     """Talk to an AV Access HDMI matrix over TCP."""
 

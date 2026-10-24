@@ -17,7 +17,7 @@ from homeassistant.helpers.selector import (
     NumberSelectorMode,
 )
 
-from .client import AVAccessClient, AVAccessDeviceInfo, AVAccessError
+from .client import AVAccessClient, AVAccessDeviceInfo, AVAccessError, is_same_device
 from .const import (
     CONF_INPUT_LABELS,
     CONF_OUTPUT_LABELS,
@@ -192,14 +192,30 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_info, errors = await self._async_validate(user_input)
 
             if device_info is not None:
-                # Reconfiguration must not silently point the entry at a
-                # different matrix.
-                await self.async_set_unique_id(device_info.unique_id)
-                self._abort_if_unique_id_mismatch(reason="wrong_device")
+                # The address may legitimately change, for example after a new
+                # DHCP lease, so only the model decides whether the entry still
+                # describes the same matrix.
+                if not is_same_device(
+                    reconfigure_entry.unique_id,
+                    device_info.model,
+                    reconfigure_entry.data[CONF_HOST],
+                ):
+                    return self.async_abort(reason="wrong_device")
+
+                # The ID follows the new address, which keeps a second entry
+                # from being created for the same matrix later on.
+                existing_entry = await self.async_set_unique_id(device_info.unique_id)
+
+                if (
+                    existing_entry is not None
+                    and existing_entry.entry_id != reconfigure_entry.entry_id
+                ):
+                    return self.async_abort(reason="already_configured")
 
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
                     data=user_input,
+                    unique_id=device_info.unique_id,
                 )
 
         return self.async_show_form(

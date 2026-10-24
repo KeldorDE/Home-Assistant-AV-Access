@@ -4,7 +4,7 @@
             "already_configured": "This AV Access HDMI matrix is already configured.",
             "already_in_progress": "Configuration for this AV Access HDMI matrix is already in progress.",
             "reconfigure_successful": "The AV Access HDMI matrix was reconfigured successfully.",
-            "wrong_device": "The configured address belongs to a different HDMI matrix."
+            "wrong_device": "The matrix at this address is a different model than the configured one."
         },
         "error": {
             "cannot_connect": "Failed to connect to the AV Access HDMI matrix.",

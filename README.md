@@ -125,7 +125,9 @@ matrix web interface are read from the matrix, so the entities match the
 connected device.
 
 The connection details can be changed later without losing the entities through
-**Settings → Devices & services → AV Access → Reconfigure**.
+**Settings → Devices & services → AV Access → Reconfigure**. The address may
+also change, for example after the matrix received a new IP address; the
+entities keep their history as long as it is the same model.
 
 ### Naming the ports
 
