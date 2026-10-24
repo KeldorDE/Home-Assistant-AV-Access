@@ -9,7 +9,11 @@ The section of the version that is tagged is used as the body of the GitHub
 release, so every release needs a heading of the form `## [1.0.0] - 2026-09-18`.
 Tags are named after the version itself, for example `1.0.0`.
 
-## [Unreleased]
+## [1.0.3]
+
+### Added
+
+- Add an AV Access matrix emulator for development testing
 
 ### Fixed
 
