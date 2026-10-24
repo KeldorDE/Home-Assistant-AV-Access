@@ -11,6 +11,10 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow the reconfigure flow to change the address of the matrix without losing the entities
+
 ## [1.0.2] - 2026-09-22
 
 ### Changed

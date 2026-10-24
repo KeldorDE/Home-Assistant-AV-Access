@@ -12,3 +12,33 @@ services:
     volumes:
       - ./config:/config:rw
       - ../custom_components/av_access:/config/custom_components/av_access:rw
+    depends_on:
+      - matrix-emulator
+
+  # Emulates the Telnet port of an AV Access 4KMX44-H2 matrix, so the
+  # integration can be used without the hardware. Add the integration with the
+  # host "matrix-emulator" and port 23, or with the address of this machine and
+  # port 2323 when Home Assistant runs outside of this compose project.
+  matrix-emulator:
+    build: ./emulator
+    container_name: av-access-matrix-emulator
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Berlin
+      - AVA_MODEL=4KMX44-H2
+      # Set to DEBUG to also log connections without commands.
+      - AVA_LOG_LEVEL=INFO
+      # Changes one setting every 30 seconds the way the front panel does,
+      # which the integration reports to the logbook as a change at the matrix.
+      # Set to 0 to keep the state untouched.
+      - AVA_DRIFT_INTERVAL=0
+      - AVA_STATE_FILE=/data/state.json
+    ports:
+      - "2323:23"
+    volumes:
+      - emulator-state:/data
+
+volumes:
+  # Keeps the state of the emulated matrix across a restart. Remove it with
+  # "docker compose down -v" to get a matrix in its factory state.
+  emulator-state:
