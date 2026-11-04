@@ -88,13 +88,11 @@ Assistant.
 
 ## State updates
 
-The matrix accepts a single command at a time and needs a short pause
-afterwards, so all communication is serialized and spaced out by the
-integration. Sending commands back to back has been observed to freeze the
-device. The pause is also kept while the configuration dialog checks a matrix
-that is already set up and while the integration reloads. A command issued from
-Home Assistant, such as switching an output, goes ahead of the polling commands
-that are waiting, so it waits for one pause at most.
+The integration sends one command at a time to the matrix, which answers in
+less than a tenth of a second. This also holds while the configuration dialog
+checks a matrix that is already set up and while the integration reloads. A
+command issued from Home Assistant, such as switching an output, goes ahead of
+the polling commands that are waiting.
 
 The routing is polled every 3 seconds by default, which is the value that also
 changes when somebody switches at the front panel of the matrix or with the
@@ -106,7 +104,7 @@ as well. A change made
 at the device is therefore visible after one rotation over all inputs or
 outputs at the latest. A command issued by Home Assistant shows its value
 right away, before it is sent to the matrix, so the dashboard reacts at once
-even while other commands are still waiting for their pause. The value the
+even while other commands are still waiting for their turn. The value the
 matrix confirms replaces it, and a command that fails restores the previous
 value and reports an error. The action itself, for example in a script, still
 finishes only once the matrix has confirmed the command.

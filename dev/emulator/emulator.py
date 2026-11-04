@@ -191,7 +191,8 @@ class Config:
     cec_auto_short_reply: bool = False
 
     # Seconds between two commands below which the matrix is overloaded. The
-    # real device has been observed to freeze when commands arrive back to back.
+    # real device copes with commands back to back, this only tests how the
+    # integration handles a device that does not.
     min_command_gap: float = 0.0
     # Seconds the matrix stops answering after it was overloaded.
     freeze_duration: float = 0.0
@@ -461,8 +462,8 @@ class Matrix:
     def note_command(self, now: float) -> bool:
         """Return whether the matrix answers, remembering when it was asked.
 
-        Commands that arrive faster than the configured gap overload the real
-        matrix, which then stops answering for a while.
+        Commands that arrive faster than the configured gap overload the
+        emulated matrix, which then stops answering for a while.
         """
         previous, self._last_command_at = self._last_command_at, now
 

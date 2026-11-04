@@ -328,10 +328,10 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
     ) -> None:
         """Publish a value right away, then send it to the matrix.
 
-        Every command waits for the pause the previous one earned, so several
-        commands take seconds until the matrix has confirmed them all. The
-        requested value is therefore published before the command is sent,
-        which lets the frontend react at once. The value the matrix confirms
+        A command may wait behind others, and a matrix that answers slowly
+        takes up to the timeouts to confirm it. The requested value is
+        therefore published before the command is sent, which lets the
+        frontend react at once. The value the matrix confirms
         replaces it, and a failed command restores the previous value. A later
         command for the same port has the last word in both cases.
         """
@@ -357,7 +357,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             confirmed = await self._async_command(send())
 
         # A command that is cancelled, for example by stopping the script that
-        # issued it while it waits for its pause, leaves the value as unknown
+        # issued it while it waits for its turn, leaves the value as unknown
         # as a failed one.
         except (HomeAssistantError, asyncio.CancelledError):
             if self._latest_commands.get(key) is token:

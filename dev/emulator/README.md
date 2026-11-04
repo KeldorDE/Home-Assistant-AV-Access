@@ -105,8 +105,8 @@ to test.
 | `AVA_GREETING_DELAY` | `0` | Seconds before the welcome line is sent. A client that sends its command without waiting for the welcome line loses it, which reproduces the commands the real matrix occasionally answers with its welcome line alone. |
 | `AVA_RESPONSE_DELAY` | `0` | Seconds the matrix takes before it answers. Useful to provoke timeouts. |
 | `AVA_IDLE_TIMEOUT` | `300` | Seconds an open connection may stay idle before it is dropped. |
-| `AVA_MIN_COMMAND_GAP` | `0` | Seconds between two commands below which the matrix logs that it is overloaded. `1` matches the pause the integration keeps. |
-| `AVA_FREEZE_DURATION` | `0` | Seconds the matrix stops answering after it was overloaded, which is how the real device reacts to commands that arrive back to back. Needs `AVA_MIN_COMMAND_GAP`. |
+| `AVA_MIN_COMMAND_GAP` | `0` | Seconds between two commands below which the matrix logs that it is overloaded. The real matrix needs no gap, this only tests how the integration copes with a device that does. |
+| `AVA_FREEZE_DURATION` | `0` | Seconds the matrix stops answering after it was overloaded, to test how the integration recovers from a device that stops answering. Needs `AVA_MIN_COMMAND_GAP`. |
 | `AVA_DRIFT_INTERVAL` | `30` in compose, `0` otherwise | Seconds between two changes the emulator performs on its own, which is what a switch at the front panel or on the remote control looks like. The integration reports those to the logbook as changes at the matrix. |
 | `AVA_DRIFT_SEED` | random | Seed of those changes, so a run can be repeated. |
 | `AVA_STATE_FILE` | unset | File the state is written to, so it survives a restart. The compose project uses `/data/state.json` in a named volume. |

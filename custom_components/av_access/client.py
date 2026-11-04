@@ -2,10 +2,9 @@
 
 The matrix exposes a line based protocol on its Telnet port. Every command is
 answered on the same connection, which the matrix closes afterwards, so one
-connection per command is used. The matrix reacts badly to commands that arrive
-back to back, therefore all communication with a matrix passes through a single
-gate, and a command may only start once the pause the previous one earned has
-elapsed.
+connection per command is used. All communication with a matrix passes through
+a single gate, which sends one command at a time and lets the commands of the
+user go first.
 """
 
 from __future__ import annotations
@@ -23,7 +22,6 @@ from typing import NamedTuple, TypedDict
 
 from .const import (
     CLOSE_TIMEOUT,
-    COMMAND_DELAY,
     CONNECT_TIMEOUT,
     DEFAULT_INPUT_COUNT,
     DEFAULT_OUTPUT_COUNT,
@@ -410,21 +408,22 @@ class CommandPriority(IntEnum):
 
 
 class _CommandGate:
-    """Space out the commands sent to one matrix and decide which goes next.
+    """Send the commands to one matrix one at a time and decide which goes next.
 
-    Exactly one command may be in flight per matrix, and every command earns a
-    pause before the next one. The next command is only chosen once that pause
-    has elapsed, so a command of the user that arrives during the pause
-    overtakes the polling commands that were already waiting. Commands of the
-    same priority keep the order in which they arrived.
+    The matrix copes with commands back to back and even with several
+    connections at once, which a load test of thousands of commands without any
+    pause confirmed. One command at a time still costs next to nothing, as an
+    answer takes less than a tenth of a second, and it lets a command of the
+    user overtake the polling commands that are already waiting. Commands of
+    the same priority keep the order in which they arrived.
     """
 
     def __init__(self) -> None:
         """Initialize an idle gate."""
         self._loop: asyncio.AbstractEventLoop | None = None
 
-        # Set from the moment a command is granted until its pause has elapsed
-        # without another command waiting.
+        # Set from the moment a command is granted until it is done without
+        # another command waiting.
         self._busy = False
 
         self._waiters: list[tuple[int, int, asyncio.Future[None]]] = []
@@ -453,21 +452,16 @@ class _CommandGate:
             await waiter
 
         except asyncio.CancelledError:
-            # The turn was granted right before the caller was cancelled. The
-            # pause has already elapsed, so the turn passes on immediately
-            # instead of blocking the matrix for good.
+            # The turn was granted right before the caller was cancelled, so it
+            # passes on immediately instead of blocking the matrix for good.
             if waiter.done() and not waiter.cancelled():
                 self._grant_next()
 
             raise
 
     def release(self) -> None:
-        """End the current turn and grant the next once the pause has elapsed.
-
-        A failed attempt earns the pause as well, otherwise a broken connection
-        would result in a burst of commands.
-        """
-        asyncio.get_running_loop().call_later(COMMAND_DELAY, self._grant_next)
+        """End the current turn and hand it to the next waiting command."""
+        self._grant_next()
 
     def _grant_next(self) -> None:
         """Hand the turn to the waiting command with the highest priority."""
@@ -484,8 +478,8 @@ class _CommandGate:
 
 # Every client talking to the same matrix shares its gate. The configuration
 # flow validates a matrix while its entry keeps polling it, and a reload creates
-# a new client while the previous one may have just sent a command, so a gate
-# per client would not keep the pause.
+# a new client while the previous one may still be sending a command, so a gate
+# per client would let commands overlap.
 _GATES: dict[tuple[str, int], _CommandGate] = {}
 
 
@@ -550,14 +544,12 @@ class AVAccessClient:
     ) -> str:
         """Send a command to the matrix and return its raw response.
 
-        This is the only place that performs I/O with the matrix. A caller that
-        arrives once the matrix has rested waits for nothing.
+        This is the only place that performs I/O with the matrix.
 
         A matrix that greets every connection answers a command it discarded
-        with nothing but the greeting, so such a command is sent again after
-        the regular pause. Only a command that is answered like this every time
-        reaches the caller that way, which then means the matrix does not know
-        it.
+        with nothing but the greeting, so such a command is sent again. Only a
+        command that is answered like this every time reaches the caller that
+        way, which then means the matrix does not know it.
         """
         retries = DISCARDED_COMMAND_RETRIES
 

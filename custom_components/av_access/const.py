@@ -29,22 +29,18 @@ MANUFACTURER = "AV Access"
 # Seconds between two polls. The routing is read on every poll, EDID and HDCP
 # for one input per poll. Changes made at the front panel or with the remote
 # control are only noticed by a poll, so a short interval keeps Home Assistant
-# in sync. Every command occupies the matrix for at least COMMAND_DELAY
-# seconds, which is the lower bound of a useful interval.
+# in sync. A command takes less than a tenth of a second, so a poll is done
+# well within a second.
 DEFAULT_SCAN_INTERVAL = 3
 MIN_SCAN_INTERVAL = 1
 MAX_SCAN_INTERVAL = 300
 
-# The matrix accepts one command at a time and needs a pause afterwards.
-# Sending commands back to back has been observed to freeze the device.
-COMMAND_DELAY = 1.0
-
 # Seconds a value a command confirmed wins over a value read from the matrix.
 # A poll that started before the command still reports the previous value and
 # would otherwise look like a change made at the front panel. The window
-# therefore has to outlast a whole poll, which takes about six seconds with all
-# the commands of a rotation. After it the matrix is believed again, so a state
-# it really keeps is not hidden.
+# therefore has to outlast a whole poll, including the timeouts of a matrix that
+# answers slowly. After it the matrix is believed again, so a state it really
+# keeps is not hidden.
 COMMAND_CONFIRM_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 3.0
 READ_TIMEOUT = 3.0
@@ -61,8 +57,7 @@ IDLE_TIMEOUT = 0.3
 # without a greeting is recognized when none arrives within this time.
 GREETING_TIMEOUT = 0.5
 
-# A command the matrix discarded is sent this many times more, each after the
-# regular pause.
+# A command the matrix discarded is sent this many times more.
 DISCARDED_COMMAND_RETRIES = 1
 
 # Used until the matrix reports a model the port count can be derived from.
