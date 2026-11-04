@@ -4,15 +4,51 @@
             "output_input": {
                 "default": "mdi:hdmi-port"
             },
+            "output_input_named": {
+                "default": "mdi:hdmi-port"
+            },
             "input_edid": {
+                "default": "mdi:monitor-eye"
+            },
+            "input_edid_named": {
                 "default": "mdi:monitor-eye"
             }
         },
         "switch": {
             "input_hdcp": {
-                "default": "mdi:shield-lock",
+                "default": "mdi:shield-lock-open",
                 "state": {
-                    "off": "mdi:shield-lock-open"
+                    "on": "mdi:shield-lock"
+                }
+            },
+            "input_hdcp_named": {
+                "default": "mdi:shield-lock-open",
+                "state": {
+                    "on": "mdi:shield-lock"
+                }
+            },
+            "output_audio_mute": {
+                "default": "mdi:volume-high",
+                "state": {
+                    "on": "mdi:volume-off"
+                }
+            },
+            "output_audio_mute_named": {
+                "default": "mdi:volume-high",
+                "state": {
+                    "on": "mdi:volume-off"
+                }
+            },
+            "output_cec_auto": {
+                "default": "mdi:television-off",
+                "state": {
+                    "on": "mdi:television-clean"
+                }
+            },
+            "output_cec_auto_named": {
+                "default": "mdi:television-off",
+                "state": {
+                    "on": "mdi:television-clean"
                 }
             }
         }

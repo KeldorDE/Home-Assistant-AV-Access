@@ -82,11 +82,6 @@ class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):
         self._name_after_input(input_number)
 
     @property
-    def icon(self) -> str:
-        """Return the icon for the current mute state."""
-        return "mdi:shield-lock" if self.is_on else "mdi:shield-lock-open"
-
-    @property
     def is_on(self) -> bool | None:
         """Return whether HDCP support is enabled."""
         return self.coordinator.data["hdcp"].get(self._input)
@@ -137,11 +132,6 @@ class AVAccessAudioMuteSwitch(AVAccessEntity, SwitchEntity):
         """Return whether the output audio is muted."""
         return self.coordinator.data["audio_mute"].get(self._output)
 
-    @property
-    def icon(self) -> str:
-        """Return the icon for the current mute state."""
-        return "mdi:volume-off" if self.is_on else "mdi:volume-high"
-
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Mute the output audio."""
         await self.coordinator.async_set_audio_mute(
@@ -187,11 +177,6 @@ class AVAccessCecAutoSwitch(AVAccessEntity, SwitchEntity):
     def is_on(self) -> bool | None:
         """Return whether the automatic CEC power function is enabled."""
         return self.coordinator.data["cec_auto"].get(self._output)
-
-    @property
-    def icon(self) -> str:
-        """Return the icon for the current state of the function."""
-        return "mdi:television-clean" if self.is_on else "mdi:television-off"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable the automatic CEC power function."""
