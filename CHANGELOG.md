@@ -11,23 +11,14 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
-### Changed
-
-- Read the routing on every poll and the other settings of all ports once a minute instead of one input and one output per poll, so a change of the routing at the matrix shows up sooner while the matrix gets far fewer commands
-- Let the value of a command win over a poll for 5 instead of 15 seconds, so a change made at the matrix right after a command is no longer hidden as long
-
-### Fixed
-
-- Show the icons of the output and EDID selects also for ports with a user defined name
-- Reject a port outside of 1 to 65535 in the configuration dialog with a message at the field instead of a failed connection
-- Require Home Assistant 2025.8 or later, the first release that provides everything the integration uses, so HACS no longer offers it to older versions on which it fails to load
-
-## [1.1.0]
+## [1.1.0] - 2026-11-04
 
 ### Changed
 
 - Send commands issued from Home Assistant ahead of waiting polling commands
 - Drop the pause of one second between two commands, as a load test showed the matrix handles commands back to back, which makes a poll take well below a second instead of about six seconds
+- Read the routing on every poll and the other settings of all ports once a minute instead of one input and one output per poll, so a change of the routing at the matrix shows up sooner while the matrix gets far fewer commands
+- Let the value of a command win over a poll for 5 instead of 15 seconds, so a change made at the matrix right after a command is no longer hidden as long
 - Show the value of a command right away instead of after the confirmation of the matrix, and restore the previous value if the command fails
 - Greet every connection in the emulator like the real matrix, and reproduce a discarded command with `AVA_GREETING_DELAY`
 - Describe the installation through the Marketplace of Home Assistant 2026.11 in the README and add a button that opens the integration directly in Home Assistant
@@ -39,8 +30,11 @@ Tags are named after the version itself, for example `1.0.0`.
 - Send a discarded command once more instead of failing or taking the command as unsupported by the matrix
 - Show a failed command as an error message instead of an unexpected error with a traceback
 - Name the user or automation that changed the routing in the logbook of the input number sensor, and report a change at the matrix there as well
+- Show the icons of the output and EDID selects also for ports with a user defined name
+- Reject a port outside of 1 to 65535 in the configuration dialog with a message at the field instead of a failed connection
+- Require Home Assistant 2025.8 or later, the first release that provides everything the integration uses, so HACS no longer offers it to older versions on which it fails to load
 
-## [1.0.3]
+## [1.0.3] - 2026-10-24
 
 ### Added
 
