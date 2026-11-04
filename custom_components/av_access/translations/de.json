@@ -8,7 +8,8 @@
         },
         "error": {
             "cannot_connect": "Verbindung zur AV Access HDMI-Matrix fehlgeschlagen.",
-            "unknown": "Unerwarteter Fehler."
+            "unknown": "Unerwarteter Fehler.",
+            "invalid_port": "Der Port muss zwischen 1 und 65535 liegen."
         },
         "step": {
             "reconfigure": {

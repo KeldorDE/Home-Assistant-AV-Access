@@ -33,7 +33,9 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_PORT,
     MAX_SCAN_INTERVAL,
+    MIN_PORT,
     MIN_SCAN_INTERVAL,
 )
 from .labels import (
@@ -136,6 +138,13 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> tuple[AVAccessDeviceInfo | None, dict[str, str]]:
         """Validate the user input and return the device info and any errors."""
         errors: dict[str, str] = {}
+
+        # A port outside the valid range can never be reached, which would only
+        # surface as a failed connection. Checking it here names the field.
+        if not MIN_PORT <= user_input[CONF_PORT] <= MAX_PORT:
+            errors[CONF_PORT] = "invalid_port"
+
+            return None, errors
 
         try:
             device_info = await validate_input(user_input)

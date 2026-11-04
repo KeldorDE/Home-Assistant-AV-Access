@@ -19,6 +19,7 @@ Tags are named after the version itself, for example `1.0.0`.
 ### Fixed
 
 - Show the icons of the output and EDID selects also for ports with a user defined name
+- Reject a port outside of 1 to 65535 in the configuration dialog with a message at the field instead of a failed connection
 - Require Home Assistant 2025.8 or later, the first release that provides everything the integration uses, so HACS no longer offers it to older versions on which it fails to load
 
 ## [1.1.0]

@@ -20,8 +20,10 @@ CONF_OUTPUT_LABELS = "output_labels"
 DEFAULT_INPUT_NAME = "HDMI {number}"
 DEFAULT_OUTPUT_NAME = "Output {number}"
 
-# Telnet port of the matrix.
+# Telnet port of the matrix, and the range a TCP port can have.
 DEFAULT_PORT = 23
+MIN_PORT = 1
+MAX_PORT = 65535
 DEFAULT_NAME = "AV Access"
 
 MANUFACTURER = "AV Access"
