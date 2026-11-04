@@ -1,7 +1,7 @@
 DOCKER_COMPOSE=./dev/docker-compose.yml
 
 up:
-	docker compose -f ${DOCKER_COMPOSE} up -d --build
+	docker compose -f ${DOCKER_COMPOSE} up -d --build --pull always
 
 down:
 	docker compose -f ${DOCKER_COMPOSE} down
