@@ -516,26 +516,6 @@ class AVAccessClient:
         # unknown until the first connection tells.
         self._greets_on_connect: bool | None = None
 
-    @property
-    def host(self) -> str:
-        """Return the address of the matrix."""
-        return self._host
-
-    @property
-    def input_count(self) -> int:
-        """Return the number of inputs of the matrix."""
-        return self._input_count
-
-    @property
-    def hdcp_supported(self) -> bool:
-        """Return whether the matrix understands the HDCP commands."""
-        return self._hdcp_supported
-
-    @property
-    def cec_supported(self) -> bool:
-        """Return whether the matrix understands the CEC commands."""
-        return self._cec_supported
-
     async def async_send_command(
         self,
         command: str,
