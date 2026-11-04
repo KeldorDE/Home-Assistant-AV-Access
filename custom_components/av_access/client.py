@@ -3,8 +3,9 @@
 The matrix exposes a line based protocol on its Telnet port. Every command is
 answered on the same connection, which the matrix closes afterwards, so one
 connection per command is used. The matrix reacts badly to commands that arrive
-back to back, therefore all communication passes through a single lock, and a
-command may only start once the pause the previous one earned has elapsed.
+back to back, therefore all communication with a matrix passes through a single
+gate, and a command may only start once the pause the previous one earned has
+elapsed.
 """
 
 from __future__ import annotations
@@ -13,6 +14,9 @@ import asyncio
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import IntEnum
+import heapq
+import itertools
 import logging
 import re
 from typing import NamedTuple, TypedDict
@@ -23,6 +27,8 @@ from .const import (
     CONNECT_TIMEOUT,
     DEFAULT_INPUT_COUNT,
     DEFAULT_OUTPUT_COUNT,
+    DISCARDED_COMMAND_RETRIES,
+    GREETING_TIMEOUT,
     IDLE_TIMEOUT,
     MANUFACTURER,
     READ_TIMEOUT,
@@ -48,8 +54,9 @@ COMMAND_CEC_DELAY = "GET AUTOCEC_D hdmiout{output}"
 COMMAND_SET_CEC_DELAY = "SET AUTOCEC_D hdmiout{output} {minutes}"
 COMMAND_SET_CEC_POWER = "SET CEC_PWR hdmiout{output} {value}"
 
-# The matrix answers a command it does not know with its welcome line, which is
-# also the only place where it reports its model without being asked.
+# The matrix greets every connection with its welcome line and answers a command
+# it does not know with it, which is also the only place where it reports its
+# model without being asked.
 GREETING_PATTERN = re.compile(r"welcome\s+to\s+the\s+(\S+)\s+matrix", re.IGNORECASE)
 
 # Depending on the firmware the routing is reported as "MP hdmiin2 hdmiout1",
@@ -197,6 +204,11 @@ def parse_greeting_model(response: str) -> str | None:
             return match.group(1).strip("!.,")
 
     return None
+
+
+def is_greeting_only(response: str) -> bool:
+    """Return whether a response holds nothing but the welcome line."""
+    return all(GREETING_PATTERN.search(line) for line in response_lines(response))
 
 
 def parse_routing_response(
@@ -387,6 +399,106 @@ def is_same_device(unique_id: str | None, model: str | None, host: str) -> bool:
     return unique_id == build_unique_id(model, host)
 
 
+class CommandPriority(IntEnum):
+    """Order in which waiting commands are sent, the lowest value first."""
+
+    # A command somebody is waiting for, such as switching an output.
+    USER = 0
+
+    # A command that reads the state in the background.
+    POLL = 1
+
+
+class _CommandGate:
+    """Space out the commands sent to one matrix and decide which goes next.
+
+    Exactly one command may be in flight per matrix, and every command earns a
+    pause before the next one. The next command is only chosen once that pause
+    has elapsed, so a command of the user that arrives during the pause
+    overtakes the polling commands that were already waiting. Commands of the
+    same priority keep the order in which they arrived.
+    """
+
+    def __init__(self) -> None:
+        """Initialize an idle gate."""
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+        # Set from the moment a command is granted until its pause has elapsed
+        # without another command waiting.
+        self._busy = False
+
+        self._waiters: list[tuple[int, int, asyncio.Future[None]]] = []
+        self._sequence = itertools.count()
+
+    async def async_acquire(self, priority: CommandPriority) -> None:
+        """Wait until the matrix may receive the next command."""
+        loop = asyncio.get_running_loop()
+
+        # The gate outlives a single client. A different loop, which only
+        # happens in tests, cannot inherit the waiters of the previous one.
+        if loop is not self._loop:
+            self._loop = loop
+            self._busy = False
+            self._waiters.clear()
+
+        if not self._busy:
+            self._busy = True
+            return
+
+        waiter: asyncio.Future[None] = loop.create_future()
+
+        heapq.heappush(self._waiters, (priority, next(self._sequence), waiter))
+
+        try:
+            await waiter
+
+        except asyncio.CancelledError:
+            # The turn was granted right before the caller was cancelled. The
+            # pause has already elapsed, so the turn passes on immediately
+            # instead of blocking the matrix for good.
+            if waiter.done() and not waiter.cancelled():
+                self._grant_next()
+
+            raise
+
+    def release(self) -> None:
+        """End the current turn and grant the next once the pause has elapsed.
+
+        A failed attempt earns the pause as well, otherwise a broken connection
+        would result in a burst of commands.
+        """
+        asyncio.get_running_loop().call_later(COMMAND_DELAY, self._grant_next)
+
+    def _grant_next(self) -> None:
+        """Hand the turn to the waiting command with the highest priority."""
+        while self._waiters:
+            _, _, waiter = heapq.heappop(self._waiters)
+
+            # A caller that gave up while waiting leaves a cancelled future.
+            if not waiter.done():
+                waiter.set_result(None)
+                return
+
+        self._busy = False
+
+
+# Every client talking to the same matrix shares its gate. The configuration
+# flow validates a matrix while its entry keeps polling it, and a reload creates
+# a new client while the previous one may have just sent a command, so a gate
+# per client would not keep the pause.
+_GATES: dict[tuple[str, int], _CommandGate] = {}
+
+
+def _command_gate(host: str, port: int) -> _CommandGate:
+    """Return the gate shared by all clients of a matrix."""
+    key = (host.strip().lower(), port)
+
+    if (gate := _GATES.get(key)) is None:
+        gate = _GATES[key] = _CommandGate()
+
+    return gate
+
+
 class AVAccessClient:
     """Talk to an AV Access HDMI matrix over TCP."""
 
@@ -395,12 +507,9 @@ class AVAccessClient:
         self._host = host
         self._port = port
 
-        # Exactly one command may be in flight per matrix, so this lock guards
-        # every single command, no matter which caller sends it.
-        self._command_lock = asyncio.Lock()
-
-        # Loop time before which the matrix must not receive the next command.
-        self._next_command_at = 0.0
+        # Exactly one command may be in flight per matrix, so this gate guards
+        # every single command, no matter which caller or client sends it.
+        self._gate = _command_gate(host, port)
 
         self._input_count = DEFAULT_INPUT_COUNT
         self._output_count = DEFAULT_OUTPUT_COUNT
@@ -408,6 +517,10 @@ class AVAccessClient:
         self._bulk_routing_supported = True
         self._hdcp_supported = True
         self._cec_supported = True
+
+        # Whether the matrix greets a new connection before it reads a command,
+        # unknown until the first connection tells.
+        self._greets_on_connect: bool | None = None
 
     @property
     def host(self) -> str:
@@ -429,31 +542,61 @@ class AVAccessClient:
         """Return whether the matrix understands the CEC commands."""
         return self._cec_supported
 
-    async def async_send_command(self, command: str) -> str:
+    async def async_send_command(
+        self,
+        command: str,
+        *,
+        priority: CommandPriority = CommandPriority.POLL,
+    ) -> str:
         """Send a command to the matrix and return its raw response.
 
-        This is the only place that performs I/O with the matrix.
-        """
-        async with self._command_lock:
-            loop = asyncio.get_running_loop()
+        This is the only place that performs I/O with the matrix. A caller that
+        arrives once the matrix has rested waits for nothing.
 
-            # The pause is waited out before the command instead of after it,
-            # but still under the lock. The matrix sees the same spacing, while
-            # a caller that arrives once the matrix has rested waits for nothing.
-            if (pause := self._next_command_at - loop.time()) > 0:
-                await asyncio.sleep(pause)
+        A matrix that greets every connection answers a command it discarded
+        with nothing but the greeting, so such a command is sent again after
+        the regular pause. Only a command that is answered like this every time
+        reaches the caller that way, which then means the matrix does not know
+        it.
+        """
+        retries = DISCARDED_COMMAND_RETRIES
+
+        while True:
+            await self._gate.async_acquire(priority)
 
             try:
-                return await self._async_execute_command(command)
+                response = await self._async_execute_command(command)
 
             finally:
-                # A failed attempt earns the pause as well, otherwise a broken
-                # connection would result in a burst of commands.
-                self._next_command_at = loop.time() + COMMAND_DELAY
+                self._gate.release()
 
-    async def async_get_device_info(self) -> AVAccessDeviceInfo:
-        """Read the static information the matrix reports about itself."""
-        version_response = await self.async_send_command(COMMAND_VERSION)
+            if retries <= 0 or not (
+                self._greets_on_connect and is_greeting_only(response)
+            ):
+                return response
+
+            retries -= 1
+
+            _LOGGER.debug(
+                "The matrix at %s discarded %r, sending it again",
+                self._host,
+                command,
+            )
+
+    async def async_get_device_info(
+        self,
+        *,
+        priority: CommandPriority = CommandPriority.POLL,
+    ) -> AVAccessDeviceInfo:
+        """Read the static information the matrix reports about itself.
+
+        The configuration flow asks with the priority of the user, because
+        somebody waits for the dialog while the entry may keep polling.
+        """
+        version_response = await self.async_send_command(
+            COMMAND_VERSION,
+            priority=priority,
+        )
         version = parse_version_response(version_response)
 
         # A matrix that does not know GET VER answers with its welcome line,
@@ -461,9 +604,11 @@ class AVAccessClient:
         model = version.model or parse_greeting_model(version_response)
 
         network = parse_network_response(
-            await self.async_send_command(COMMAND_IP_ADDRESS)
+            await self.async_send_command(COMMAND_IP_ADDRESS, priority=priority)
         )
-        ip_mode = parse_ip_mode_response(await self.async_send_command(COMMAND_IP_MODE))
+        ip_mode = parse_ip_mode_response(
+            await self.async_send_command(COMMAND_IP_MODE, priority=priority)
+        )
 
         if ports := ports_from_model(model):
             self._input_count, self._output_count = ports
@@ -492,7 +637,7 @@ class AVAccessClient:
         """Return the complete state of the matrix.
 
         The commands are sent one after another on purpose. Running them
-        concurrently would queue them behind the command lock anyway and must
+        concurrently would queue them behind the command gate anyway and must
         never be attempted.
         """
         outputs = await self.async_get_routing()
@@ -612,7 +757,8 @@ class AVAccessClient:
     async def async_set_output(self, output: int, input_number: int) -> int:
         """Route an HDMI input to an output and return the confirmed input."""
         response = await self.async_send_command(
-            COMMAND_SET_ROUTING.format(input=input_number, output=output)
+            COMMAND_SET_ROUTING.format(input=input_number, output=output),
+            priority=CommandPriority.USER,
         )
 
         confirmed = parse_switch_response(response, output)
@@ -628,7 +774,8 @@ class AVAccessClient:
     async def async_set_edid(self, input_number: int, edid: int) -> int:
         """Set the EDID of an HDMI input and return the confirmed EDID."""
         response = await self.async_send_command(
-            COMMAND_SET_EDID.format(input=input_number, edid=edid)
+            COMMAND_SET_EDID.format(input=input_number, edid=edid),
+            priority=CommandPriority.USER,
         )
 
         confirmed = parse_edid_response(response, input_number)
@@ -647,7 +794,8 @@ class AVAccessClient:
             COMMAND_SET_HDCP.format(
                 input=input_number,
                 value="on" if enabled else "off",
-            )
+            ),
+            priority=CommandPriority.USER,
         )
 
         confirmed = parse_hdcp_response(response, input_number)
@@ -685,7 +833,8 @@ class AVAccessClient:
             COMMAND_SET_AUDIO_MUTE.format(
                 output=output,
                 value="on" if muted else "off",
-            )
+            ),
+            priority=CommandPriority.USER,
         )
 
         confirmed = parse_audio_mute_response(response, output)
@@ -769,7 +918,8 @@ class AVAccessClient:
             COMMAND_SET_CEC_AUTO.format(
                 output=output,
                 value="on" if enabled else "off",
-            )
+            ),
+            priority=CommandPriority.USER,
         )
 
         confirmed = parse_cec_auto_response(response, output)
@@ -785,7 +935,8 @@ class AVAccessClient:
     async def async_set_cec_delay(self, output: int, minutes: int) -> int:
         """Set the CEC power off delay of an output and return the confirmed value."""
         response = await self.async_send_command(
-            COMMAND_SET_CEC_DELAY.format(output=output, minutes=minutes)
+            COMMAND_SET_CEC_DELAY.format(output=output, minutes=minutes),
+            priority=CommandPriority.USER,
         )
 
         confirmed = parse_cec_delay_response(response, output)
@@ -808,7 +959,8 @@ class AVAccessClient:
             COMMAND_SET_CEC_POWER.format(
                 output=output,
                 value="on" if power_on else "off",
-            )
+            ),
+            priority=CommandPriority.USER,
         )
 
         confirmed = parse_cec_power_response(response, output)
@@ -840,41 +992,25 @@ class AVAccessClient:
             ) from err
 
         try:
-            writer.write(f"{command}\r\n".encode())
-
             async with asyncio.timeout(READ_TIMEOUT):
-                await writer.drain()
+                greeting = await self._async_read_greeting(reader)
 
-                # The matrix answers until it closes the connection, so the
-                # write side is closed to signal that nothing else follows.
-                if writer.can_write_eof():
-                    writer.write_eof()
+                # A matrix that closed the connection right after its greeting
+                # has nothing left to answer, which is retried like a discarded
+                # command.
+                if reader.at_eof():
+                    raw = greeting
 
-                # A closing matrix ends the read with EOF right away. A firmware
-                # that keeps the connection open sends the answer in one burst,
-                # so a short pause after the received data marks its end instead
-                # of running into READ_TIMEOUT.
-                chunks: list[bytes] = []
+                else:
+                    writer.write(f"{command}\r\n".encode())
+                    await writer.drain()
 
-                while True:
-                    try:
-                        chunk = await asyncio.wait_for(
-                            reader.read(4096),
-                            timeout=IDLE_TIMEOUT,
-                        )
+                    # The matrix answers until it closes the connection, so the
+                    # write side is closed to signal that nothing else follows.
+                    if writer.can_write_eof():
+                        writer.write_eof()
 
-                    except TimeoutError:
-                        if chunks:
-                            break
-
-                        continue
-
-                    if not chunk:
-                        break
-
-                    chunks.append(chunk)
-
-                raw = b"".join(chunks)
+                    raw = greeting + await self._async_read_answer(reader)
 
         except TimeoutError as err:
             raise AVAccessTimeoutError(
@@ -891,7 +1027,7 @@ class AVAccessClient:
         finally:
             writer.close()
 
-            # A matrix that keeps the connection open must not block the lock.
+            # A matrix that keeps the connection open must not block the gate.
             with suppress(OSError, TimeoutError):
                 async with asyncio.timeout(CLOSE_TIMEOUT):
                     await writer.wait_closed()
@@ -904,6 +1040,80 @@ class AVAccessClient:
                 f"answer {command!r}"
             )
 
-        _LOGGER.debug("Command %r returned %r", command, response)
+        _LOGGER.debug(
+            "The matrix at %s answered %r with %r",
+            self._host,
+            command,
+            response,
+        )
 
         return response
+
+    async def _async_read_greeting(self, reader: asyncio.StreamReader) -> bytes:
+        """Return the greeting the matrix sends as soon as a client connects.
+
+        The matrix occasionally discards a command that arrives before its
+        greeting, so the command waits for it. A firmware that does not greet
+        is recognized on the first connection and not waited for again.
+        """
+        if self._greets_on_connect is False:
+            return b""
+
+        try:
+            greeting = await asyncio.wait_for(
+                reader.readuntil(b"\n"),
+                timeout=GREETING_TIMEOUT,
+            )
+
+        except asyncio.IncompleteReadError as err:
+            # The matrix closed the connection before it finished the line.
+            greeting = err.partial
+
+        except TimeoutError:
+            # A matrix that greeted before keeps being expected to, a single
+            # slow greeting does not change that.
+            if self._greets_on_connect is None:
+                self._greets_on_connect = False
+
+                _LOGGER.debug(
+                    "The matrix at %s does not greet new connections",
+                    self._host,
+                )
+
+            return b""
+
+        if greeting:
+            self._greets_on_connect = True
+
+        return greeting
+
+    @staticmethod
+    async def _async_read_answer(reader: asyncio.StreamReader) -> bytes:
+        """Read the answer to a command until the matrix is done.
+
+        A closing matrix ends the read with EOF right away. A firmware that
+        keeps the connection open sends the answer in one burst, so a short
+        pause after the received data marks its end instead of running into
+        READ_TIMEOUT.
+        """
+        chunks: list[bytes] = []
+
+        while True:
+            try:
+                chunk = await asyncio.wait_for(
+                    reader.read(4096),
+                    timeout=IDLE_TIMEOUT,
+                )
+
+            except TimeoutError:
+                if chunks:
+                    break
+
+                continue
+
+            if not chunk:
+                break
+
+            chunks.append(chunk)
+
+        return b"".join(chunks)

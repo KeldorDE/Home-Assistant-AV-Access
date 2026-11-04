@@ -19,9 +19,58 @@ The integration provides native Home Assistant entities for controlling HDMI rou
 * Native Home Assistant entities
 * Configuration through the Home Assistant UI
 * Local communication
-* HACS compatible
+* Installable through the Home Assistant Marketplace (HACS)
 
 ![Entities](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/refs/heads/main/docs/images/entities.webp)
+
+## Installation
+
+### Marketplace / HACS
+
+Since Home Assistant 2026.11, HACS is built into Home Assistant as the
+**Marketplace**. On older versions, [HACS](https://hacs.xyz) has to be installed
+beforehand.
+
+The button opens the integration directly in your Home Assistant instance, in
+the Marketplace or in HACS depending on your version:
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KeldorDE&repository=Home-Assistant-AV-Access&category=integration)
+
+Alternatively:
+
+1. Open **Settings → Marketplace** (Home Assistant 2026.11 and later) or
+   **HACS** in the sidebar (older versions).
+2. Search for **AV Access** and open the integration.
+3. Select **Download** and confirm the version that is offered.
+4. Restart Home Assistant.
+
+Updates are offered by the Marketplace or HACS like for any other integration.
+Only tagged releases are offered as updates, never single commits of the default
+branch.
+
+### Manual installation
+
+Copy the directory:
+
+```text
+custom_components/av_access
+```
+
+to:
+
+```text
+/config/custom_components/av_access
+```
+
+Restart Home Assistant afterwards.
+
+### Adding the integration
+
+After restarting Home Assistant, go to:
+
+**Settings → Devices & services → Add integration → AV Access**
+
+and enter the address of your AV Access HDMI matrix.
 
 ## Supported devices
 
@@ -42,7 +91,10 @@ Assistant.
 The matrix accepts a single command at a time and needs a short pause
 afterwards, so all communication is serialized and spaced out by the
 integration. Sending commands back to back has been observed to freeze the
-device.
+device. The pause is also kept while the configuration dialog checks a matrix
+that is already set up and while the integration reloads. A command issued from
+Home Assistant, such as switching an output, goes ahead of the polling commands
+that are waiting, so it waits for one pause at most.
 
 The routing is polled every 3 seconds by default, which is the value that also
 changes when somebody switches at the front panel of the matrix or with the
@@ -52,52 +104,21 @@ input, so they are read for one input per poll instead of for all of them at
 once. Audio mute states and the CEC settings are read for one output per poll
 as well. A change made
 at the device is therefore visible after one rotation over all inputs or
-outputs at the latest. A command issued by Home Assistant is confirmed by the
-matrix and applied immediately, so an entity never waits for the next poll.
+outputs at the latest. A command issued by Home Assistant shows its value
+right away, before it is sent to the matrix, so the dashboard reacts at once
+even while other commands are still waiting for their pause. The value the
+matrix confirms replaces it, and a command that fails restores the previous
+value and reports an error. The action itself, for example in a script, still
+finishes only once the matrix has confirmed the command.
 
 A change the integration finds during a poll was made at the front panel or with
 the remote control, so it is reported to the logbook as "was changed at the
 matrix" and the state change itself names the matrix as its origin. A change
 Home Assistant itself performed keeps showing the user or the automation that
-triggered it.
+triggered it, also on the entities that follow it, such as the sensor with the
+number of the routed input.
 
 ![Log Book](https://raw.githubusercontent.com/KeldorDE/Home-Assistant-AV-Access/main/docs/images/logbook.webp)
-
-## Installation
-
-### HACS
-
-[HACS](https://hacs.xyz) has to be installed in Home Assistant beforehand.
-
-1. Open **HACS** in the sidebar of Home Assistant.
-2. Search for **AV Access** and open the integration.
-3. Select **Download** and confirm the version that is offered.
-4. Restart Home Assistant.
-
-Updates are offered by HACS like for any other integration. Only tagged releases
-are offered as updates, never single commits of the default branch.
-
-After restarting Home Assistant, go to:
-
-**Settings → Devices & services → Add integration → AV Access**
-
-and enter the address of your AV Access HDMI matrix.
-
-## Manual installation
-
-Copy the directory:
-
-```text
-custom_components/av_access
-```
-
-to:
-
-```text
-/config/custom_components/av_access
-```
-
-Restart Home Assistant afterwards.
 
 ## Configuration
 

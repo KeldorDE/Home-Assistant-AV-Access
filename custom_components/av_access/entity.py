@@ -29,7 +29,8 @@ class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
     _attr_has_entity_name = True
 
     # Entities whose state the matrix can also change at the front panel or with
-    # the remote control report such a change to the logbook.
+    # the remote control report such a change to the logbook, and name the
+    # service call of a command that changed them.
     _reports_external_change = False
 
     def __init__(self, coordinator: AVAccessCoordinator) -> None:
@@ -65,32 +66,45 @@ class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
     def _handle_coordinator_update(self) -> None:
         """Write the new state, telling the logbook where a change came from."""
         if self._reports_external_change:
-            self._async_report_external_change()
+            self._async_set_change_origin()
 
         super()._handle_coordinator_update()
 
     @callback
-    def _async_report_external_change(self) -> None:
-        """Fire an event for a state the matrix changed without a command.
+    def _async_set_change_origin(self) -> None:
+        """Give a changed state the context that names its origin.
 
-        A state change only names its origin in the logbook if it shares the
-        context with an event describing it. Home Assistant sets that context
-        for its own commands, so only a change made at the front panel or with
-        the remote control needs one. The name of the matrix travels with the
-        event, because the logbook shows it as the origin of the change.
+        A state change only names its origin in the logbook if it carries the
+        context of a service call or shares it with an event describing it.
+        Home Assistant sets the context of a service call only for the entity
+        the call targets, so every other entity a command changes, such as the
+        input number sensor following the routing, takes it over here. A change
+        made at the front panel or with the remote control gets an event of its
+        own instead.
         """
         state = self.state
         previous_state = self._previous_state
 
         self._previous_state = state
 
-        if (
-            self.coordinator.command_update
-            or previous_state is _UNKNOWN
-            or state == previous_state
-        ):
+        if previous_state is _UNKNOWN or state == previous_state:
             return
 
+        if self.coordinator.command_update:
+            if (context := self.coordinator.command_context) is not None:
+                self.async_set_context(context)
+
+            return
+
+        self._async_report_external_change()
+
+    @callback
+    def _async_report_external_change(self) -> None:
+        """Fire an event for a state the matrix changed without a command.
+
+        The name of the matrix travels with the event, because the logbook
+        shows it as the origin of the change.
+        """
         context = Context()
 
         self.async_set_context(context)

@@ -200,5 +200,10 @@
                 "title": "Name the ports"
             }
         }
+    },
+    "exceptions": {
+        "command_failed": {
+            "message": "The matrix did not carry out the command: {error}"
+        }
     }
 }

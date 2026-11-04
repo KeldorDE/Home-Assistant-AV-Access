@@ -17,7 +17,13 @@ from homeassistant.helpers.selector import (
     NumberSelectorMode,
 )
 
-from .client import AVAccessClient, AVAccessDeviceInfo, AVAccessError, is_same_device
+from .client import (
+    AVAccessClient,
+    AVAccessDeviceInfo,
+    AVAccessError,
+    CommandPriority,
+    is_same_device,
+)
 from .const import (
     CONF_INPUT_LABELS,
     CONF_OUTPUT_LABELS,
@@ -73,7 +79,9 @@ async def validate_input(data: dict[str, Any]) -> AVAccessDeviceInfo:
         port=data[CONF_PORT],
     )
 
-    return await client.async_get_device_info()
+    # Somebody waits for the dialog, so the validation goes ahead of the
+    # polling of an entry that already talks to the same matrix.
+    return await client.async_get_device_info(priority=CommandPriority.USER)
 
 
 def _labels_schema(keys: list[str], stored: dict[str, str]) -> vol.Schema:

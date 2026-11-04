@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import timedelta
+from functools import partial
 import logging
-from typing import TYPE_CHECKING, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from homeassistant.const import CONF_SCAN_INTERVAL
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Context, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .client import (
@@ -19,7 +22,7 @@ from .client import (
     AVAccessError,
     AVAccessStatus,
 )
-from .const import COMMAND_CONFIRM_TIMEOUT, DEFAULT_SCAN_INTERVAL
+from .const import COMMAND_CONFIRM_TIMEOUT, DEFAULT_SCAN_INTERVAL, DOMAIN
 
 if TYPE_CHECKING:
     from . import AVAccessConfigEntry
@@ -29,6 +32,9 @@ _LOGGER = logging.getLogger(__name__)
 # The values of the states the matrix reports for a port.
 _ValueT = TypeVar("_ValueT", int, bool)
 
+# The value a command returns.
+_ResultT = TypeVar("_ResultT")
+
 # The sections of the state, matching the keys of AVAccessStatus.
 _Section = Literal["outputs", "edid", "hdcp", "audio_mute", "cec_auto", "cec_delay"]
 
@@ -36,23 +42,27 @@ _Section = Literal["outputs", "edid", "hdcp", "audio_mute", "cec_auto", "cec_del
 # to keep the writes to the status type-safe.
 _BOOL_SECTIONS: tuple[_Section, ...] = ("hdcp", "audio_mute", "cec_auto")
 
+# The sections that belong to an input rather than to an output.
+_INPUT_SECTIONS: tuple[_Section, ...] = ("edid", "hdcp")
+
 
 @dataclass
 class _PendingCommand:
-    """A value the matrix confirmed for a command but has not reported yet."""
+    """A value a command published but the matrix has not reported yet."""
 
     value: int | bool
     expires_at: float
 
 
 class _PendingState:
-    """Track values commands confirmed until the matrix reports them.
+    """Track the values of commands until the matrix reports them.
 
-    The matrix answers every command with the value it applied, so an entity
-    does not have to wait for the next poll. A poll that started before the
-    command still reports the previous value, so the confirmed one wins until
-    the matrix reports it or the confirmation window elapses. Keeping this in a
-    small object of its own makes the reconciliation testable in isolation.
+    A command publishes its value before it is sent and once more with the
+    value the matrix confirmed, so an entity does not have to wait for the next
+    poll. A poll that started before the command still reports the previous
+    value, so the value of the command wins until the matrix reports it or the
+    confirmation window elapses. Keeping this in a small object of its own
+    makes the reconciliation testable in isolation.
     """
 
     def __init__(self, time: Callable[[], float], timeout: float) -> None:
@@ -62,11 +72,15 @@ class _PendingState:
         self._pending: dict[tuple[_Section, int], _PendingCommand] = {}
 
     def record(self, section: _Section, port: int, value: int | bool) -> None:
-        """Remember the value a command confirmed for a port."""
+        """Remember the value a command published for a port."""
         self._pending[(section, port)] = _PendingCommand(
             value=value,
             expires_at=self._time() + self._timeout,
         )
+
+    def discard(self, section: _Section, port: int) -> None:
+        """Forget the value of a port, so the next poll is believed again."""
+        self._pending.pop((section, port), None)
 
     def confirm(self, section: _Section, port: int, value: _ValueT) -> _ValueT:
         """Return the value to publish for a value read from the matrix.
@@ -178,9 +192,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # The output whose audio mute state is read during the next poll.
         self._next_output = 1
 
-        # Set while the state a command confirmed is published, so entities can
-        # tell a change they caused from a change made at the device.
+        # Set while the state of a command is published, so entities can tell a
+        # change they caused from a change made at the device.
         self._command_update = False
+
+        # The context of the service call whose command is being published, so
+        # every entity the command changes names the same origin in the logbook.
+        self._command_context: Context | None = None
 
         # The values commands confirmed, kept until the matrix reports them.
         self._pending = _PendingState(
@@ -188,103 +206,109 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             timeout=COMMAND_CONFIRM_TIMEOUT,
         )
 
+        # The most recent command per port. Commands for the same port queue up
+        # behind each other, so only the latest one may publish its outcome.
+        self._latest_commands: dict[tuple[_Section, int], object] = {}
+
     @property
     def command_update(self) -> bool:
         """Return whether the current update belongs to a command."""
         return self._command_update
 
-    async def async_set_output(self, output: int, input_number: int) -> None:
+    @property
+    def command_context(self) -> Context | None:
+        """Return the context of the service call the current update belongs to."""
+        return self._command_context
+
+    async def async_set_output(
+        self,
+        output: int,
+        input_number: int,
+        context: Context | None = None,
+    ) -> None:
         """Route an HDMI input to an output."""
-        current_input = self.data["outputs"].get(output)
+        await self._async_set_value(
+            "outputs",
+            output,
+            input_number,
+            partial(self.client.async_set_output, output, input_number),
+            context,
+        )
 
-        # Skip sending the command if the output is already set to the desired input.
-        if current_input == input_number:
-            _LOGGER.debug("Output %d is already set to input %d", output, input_number)
-            return
-
-        confirmed = await self.client.async_set_output(output, input_number)
-
-        # The matrix confirms the applied value, which is published right away,
-        # and the routing is read on every poll, so no extra refresh is needed.
-        self._async_apply("outputs", output, confirmed)
-
-    async def async_set_edid(self, input_number: int, edid: int) -> None:
+    async def async_set_edid(
+        self,
+        input_number: int,
+        edid: int,
+        context: Context | None = None,
+    ) -> None:
         """Set the EDID of an HDMI input."""
-        current_edid = self.data["edid"].get(input_number)
+        await self._async_set_value(
+            "edid",
+            input_number,
+            edid,
+            partial(self.client.async_set_edid, input_number, edid),
+            context,
+        )
 
-        # Skip sending the command if the EDID is already set to the desired value.
-        if current_edid == edid:
-            _LOGGER.debug("EDID for input %d is already set to %s", input_number, edid)
-            return
-
-        confirmed = await self.client.async_set_edid(input_number, edid)
-
-        self._async_apply("edid", input_number, confirmed)
-
-    async def async_set_hdcp(self, input_number: int, enabled: bool) -> None:
+    async def async_set_hdcp(
+        self,
+        input_number: int,
+        enabled: bool,
+        context: Context | None = None,
+    ) -> None:
         """Switch HDCP support of an HDMI input."""
-        current_hdcp = self.data["hdcp"].get(input_number)
+        await self._async_set_value(
+            "hdcp",
+            input_number,
+            enabled,
+            partial(self.client.async_set_hdcp, input_number, enabled),
+            context,
+        )
 
-        # Skip sending the command if HDCP is already in the desired state.
-        if current_hdcp == enabled:
-            _LOGGER.debug(
-                "HDCP for input %d is already %s",
-                input_number,
-                "on" if enabled else "off",
-            )
-            return
-
-        confirmed = await self.client.async_set_hdcp(input_number, enabled)
-
-        self._async_apply("hdcp", input_number, confirmed)
-
-    async def async_set_audio_mute(self, output: int, muted: bool) -> None:
+    async def async_set_audio_mute(
+        self,
+        output: int,
+        muted: bool,
+        context: Context | None = None,
+    ) -> None:
         """Set the audio mute state of an HDMI output."""
-        current_mute = self.data["audio_mute"].get(output)
+        await self._async_set_value(
+            "audio_mute",
+            output,
+            muted,
+            partial(self.client.async_set_audio_mute, output, muted),
+            context,
+        )
 
-        if current_mute == muted:
-            _LOGGER.debug(
-                "Audio for output %d is already %s",
-                output,
-                "muted" if muted else "unmuted",
-            )
-            return
-
-        confirmed = await self.client.async_set_audio_mute(output, muted)
-
-        self._async_apply("audio_mute", output, confirmed)
-
-    async def async_set_cec_auto(self, output: int, enabled: bool) -> None:
+    async def async_set_cec_auto(
+        self,
+        output: int,
+        enabled: bool,
+        context: Context | None = None,
+    ) -> None:
         """Switch the automatic CEC power function of an HDMI output."""
-        current_auto = self.data["cec_auto"].get(output)
+        await self._async_set_value(
+            "cec_auto",
+            output,
+            enabled,
+            partial(self.client.async_set_cec_auto, output, enabled),
+            context,
+        )
 
-        if current_auto == enabled:
-            _LOGGER.debug(
-                "Automatic CEC power for output %d is already %s",
-                output,
-                "on" if enabled else "off",
-            )
-            return
-
-        confirmed = await self.client.async_set_cec_auto(output, enabled)
-
-        self._async_apply("cec_auto", output, confirmed)
-
-    async def async_set_cec_delay(self, output: int, minutes: int) -> None:
+    async def async_set_cec_delay(
+        self,
+        output: int,
+        minutes: int,
+        context: Context | None = None,
+    ) -> None:
         """Set the automatic CEC power off delay of an HDMI output."""
-        current_delay = self.data["cec_delay"].get(output)
-
-        if current_delay == minutes:
-            _LOGGER.debug(
-                "CEC power off delay for output %d is already %d minutes",
-                output,
-                minutes,
-            )
-            return
-
-        confirmed = await self.client.async_set_cec_delay(output, minutes)
-
-        self._async_apply("cec_delay", output, confirmed)
+        await self._async_set_value(
+            "cec_delay",
+            output,
+            minutes,
+            partial(self.client.async_set_cec_delay, output, minutes),
+            context,
+        )
 
     async def async_set_cec_power(self, output: int, power_on: bool) -> None:
         """Power the sink of an HDMI output on or off over CEC.
@@ -292,35 +316,163 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         The matrix does not report the power state of a sink, so there is no
         state to publish and nothing to reconcile with a later poll.
         """
-        await self.client.async_set_cec_power(output, power_on)
+        await self._async_command(self.client.async_set_cec_power(output, power_on))
+
+    async def _async_set_value(
+        self,
+        section: _Section,
+        port: int,
+        value: int | bool,
+        send: Callable[[], Coroutine[Any, Any, int | bool]],
+        context: Context | None,
+    ) -> None:
+        """Publish a value right away, then send it to the matrix.
+
+        Every command waits for the pause the previous one earned, so several
+        commands take seconds until the matrix has confirmed them all. The
+        requested value is therefore published before the command is sent,
+        which lets the frontend react at once. The value the matrix confirms
+        replaces it, and a failed command restores the previous value. A later
+        command for the same port has the last word in both cases.
+        """
+        key = (section, port)
+        previous = self.data[section].get(port)
+
+        # Skip sending the command if the port already has the desired value.
+        if previous == value:
+            _LOGGER.debug(
+                "The %s value of port %d already is %s, skipping the command",
+                section,
+                port,
+                value,
+            )
+            return
+
+        token = object()
+        self._latest_commands[key] = token
+
+        self._async_apply(section, port, value, context)
+
+        try:
+            confirmed = await self._async_command(send())
+
+        # A command that is cancelled, for example by stopping the script that
+        # issued it while it waits for its pause, leaves the value as unknown
+        # as a failed one.
+        except (HomeAssistantError, asyncio.CancelledError):
+            if self._latest_commands.get(key) is token:
+                del self._latest_commands[key]
+                self._async_revert(section, port, previous, context)
+
+            raise
+
+        if self._latest_commands.get(key) is not token:
+            return
+
+        del self._latest_commands[key]
+
+        if confirmed == value:
+            # The confirmation restarts the window in which a poll that began
+            # before the command was sent cannot undo the value.
+            self._pending.record(section, port, confirmed)
+        else:
+            self._async_apply(section, port, confirmed, context)
+
+    async def _async_command(self, command: Coroutine[Any, Any, _ResultT]) -> _ResultT:
+        """Run a command of the user and report a failure to the frontend.
+
+        A plain exception would only show up as an unexpected error with a
+        traceback, while a Home Assistant error tells the user what went wrong.
+        """
+        try:
+            return await command
+
+        except AVAccessError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
     @callback
-    def _async_apply(self, section: _Section, port: int, value: int | bool) -> None:
-        """Publish the state the matrix confirmed for a command.
+    def _async_apply(
+        self,
+        section: _Section,
+        port: int,
+        value: int | bool,
+        context: Context | None,
+    ) -> None:
+        """Publish the value of a command without waiting for the next poll.
 
-        The matrix answers every command with the value it applied, so an entity
-        does not have to wait for the next poll. Only the routing is read on
-        every poll, which makes this the timely update for the rotating states.
+        Only the routing is read on every poll, which makes this the timely
+        update for the rotating states.
         """
         if self.data is None:
             return
 
         # A poll that started before the command still reports the previous
-        # value, so the confirmed one is kept until the matrix reports it.
+        # value, so the value of the command is kept until the matrix reports it.
         self._pending.record(section, port, value)
 
+        self._async_publish(
+            {**self.data, section: {**self.data[section], port: value}},
+            context,
+        )
+
+    @callback
+    def _async_revert(
+        self,
+        section: _Section,
+        port: int,
+        previous: int | bool | None,
+        context: Context | None,
+    ) -> None:
+        """Restore the value a port had before a command that failed.
+
+        Whether the matrix applied the command is unknown, because a command
+        that timed out may still have reached it. No value is kept against the
+        next poll, and that poll reads this very port instead of waiting for the
+        rotation to come by, so the actual state shows up right after it.
+        """
+        if self.data is None:
+            return
+
+        self._pending.discard(section, port)
+
+        # The routing is read on every poll anyway.
+        if section in _INPUT_SECTIONS:
+            self._next_input = port
+        elif section != "outputs":
+            self._next_output = port
+
+        values = dict(self.data[section])
+
+        if previous is None:
+            values.pop(port, None)
+        else:
+            values[port] = previous
+
+        self._async_publish({**self.data, section: values}, context)
+
+    @callback
+    def _async_publish(self, data: AVAccessStatus, context: Context | None) -> None:
+        """Publish a state that belongs to a command of the user.
+
+        The state is handed to the entities directly instead of through
+        async_set_updated_data, which would also mark the matrix as reachable
+        and restart the polling interval. Neither is true for a value that has
+        not been sent yet or for a command that just failed.
+        """
         self._command_update = True
+        self._command_context = context
 
         try:
-            self.async_set_updated_data(
-                {
-                    **self.data,
-                    section: {**self.data[section], port: value},
-                }
-            )
+            self.data = data
+            self.async_update_listeners()
 
         finally:
             self._command_update = False
+            self._command_context = None
 
     async def _async_update_data(self) -> AVAccessStatus:
         """Fetch the latest state of the matrix."""

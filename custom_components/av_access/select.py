@@ -104,6 +104,7 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         await self.coordinator.async_set_output(
             self._output,
             input_number,
+            context=self._context,
         )
 
 
@@ -151,4 +152,5 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
         await self.coordinator.async_set_edid(
             self._input,
             edid,
+            context=self._context,
         )

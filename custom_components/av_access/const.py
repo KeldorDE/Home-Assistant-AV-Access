@@ -55,6 +55,16 @@ CLOSE_TIMEOUT = 1.0
 # pause after the response, so a command does not run into READ_TIMEOUT.
 IDLE_TIMEOUT = 0.3
 
+# The matrix greets every connection with its welcome line and occasionally
+# discards a command that arrives before it, answering with nothing but the
+# greeting. A command is therefore only sent once the greeting is in. A firmware
+# without a greeting is recognized when none arrives within this time.
+GREETING_TIMEOUT = 0.5
+
+# A command the matrix discarded is sent this many times more, each after the
+# regular pause.
+DISCARDED_COMMAND_RETRIES = 1
+
 # Used until the matrix reports a model the port count can be derived from.
 DEFAULT_INPUT_COUNT = 4
 DEFAULT_OUTPUT_COUNT = 4

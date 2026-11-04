@@ -200,5 +200,10 @@
                 "title": "Anschlüsse benennen"
             }
         }
+    },
+    "exceptions": {
+        "command_failed": {
+            "message": "Die Matrix hat den Befehl nicht ausgeführt: {error}"
+        }
     }
 }

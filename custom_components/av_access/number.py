@@ -75,4 +75,6 @@ class AVAccessCecDelayNumber(AVAccessEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the delay in minutes."""
-        await self.coordinator.async_set_cec_delay(self._output, int(value))
+        await self.coordinator.async_set_cec_delay(
+            self._output, int(value), context=self._context
+        )

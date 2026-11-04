@@ -9,6 +9,25 @@ The section of the version that is tagged is used as the body of the GitHub
 release, so every release needs a heading of the form `## [1.0.0] - 2026-09-18`.
 Tags are named after the version itself, for example `1.0.0`.
 
+## [Unreleased]
+
+## [1.1.0]
+
+### Changed
+
+- Send commands issued from Home Assistant ahead of waiting polling commands, so they wait for one pause at most
+- Show the value of a command right away instead of after the confirmation of the matrix, and restore the previous value if the command fails
+- Greet every connection in the emulator like the real matrix, and reproduce a discarded command with `AVA_GREETING_DELAY`
+- Describe the installation through the Marketplace of Home Assistant 2026.11 in the README and add a button that opens the integration directly in Home Assistant
+
+### Fixed
+
+- Keep the pause between two commands while the configuration dialog checks a matrix that is already set up and while the integration reloads
+- Wait for the welcome line of the matrix before sending a command, as the matrix occasionally discards a command that arrives earlier and answers with the welcome line alone
+- Send a discarded command once more instead of failing or taking the command as unsupported by the matrix
+- Show a failed command as an error message instead of an unexpected error with a traceback
+- Name the user or automation that changed the routing in the logbook of the input number sensor, and report a change at the matrix there as well
+
 ## [1.0.3]
 
 ### Added

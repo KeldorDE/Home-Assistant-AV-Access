@@ -104,6 +104,7 @@ class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):
         await self.coordinator.async_set_hdcp(
             self._input,
             enabled,
+            context=self._context,
         )
 
 
@@ -143,11 +144,15 @@ class AVAccessAudioMuteSwitch(AVAccessEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Mute the output audio."""
-        await self.coordinator.async_set_audio_mute(self._output, True)
+        await self.coordinator.async_set_audio_mute(
+            self._output, True, context=self._context
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Unmute the output audio."""
-        await self.coordinator.async_set_audio_mute(self._output, False)
+        await self.coordinator.async_set_audio_mute(
+            self._output, False, context=self._context
+        )
 
 
 class AVAccessCecAutoSwitch(AVAccessEntity, SwitchEntity):
@@ -190,8 +195,12 @@ class AVAccessCecAutoSwitch(AVAccessEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable the automatic CEC power function."""
-        await self.coordinator.async_set_cec_auto(self._output, True)
+        await self.coordinator.async_set_cec_auto(
+            self._output, True, context=self._context
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable the automatic CEC power function."""
-        await self.coordinator.async_set_cec_auto(self._output, False)
+        await self.coordinator.async_set_cec_auto(
+            self._output, False, context=self._context
+        )

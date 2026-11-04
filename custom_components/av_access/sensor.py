@@ -118,6 +118,8 @@ class AVAccessOutputInputNumberSensor(AVAccessEntity, SensorEntity):
 
     _attr_translation_key = TRANSLATION_KEY_OUTPUT_INPUT_NUMBER
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # The number follows the routing, so it names the same origin as the select.
+    _reports_external_change = True
 
     def __init__(
         self,
