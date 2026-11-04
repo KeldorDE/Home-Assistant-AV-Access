@@ -10,6 +10,9 @@ relies on:
 
 * every command is answered on the connection it arrived on, and the matrix
   closes that connection afterwards,
+* the matrix greets every connection with its welcome line and discards what
+  the client sent before it, so such a command is answered with the welcome
+  line alone,
 * a command the matrix does not know is answered with its welcome line
   (`Welcome to the 4KMX44-H2 matrix!`), which is the only place the model is
   reported without being asked,
@@ -98,7 +101,8 @@ to test.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `AVA_CLOSE_AFTER_RESPONSE` | `true` | Close the connection after the answer, like the real matrix. With `false` the connection stays open, which emulates a firmware the client has to detect by the pause after the answer. |
-| `AVA_GREETING_ON_CONNECT` | `false` | Send the welcome line as soon as a client connects. |
+| `AVA_GREETING_ON_CONNECT` | `true` | Send the welcome line as soon as a client connects, like the real matrix, and discard what the client sent before it. |
+| `AVA_GREETING_DELAY` | `0` | Seconds before the welcome line is sent. A client that sends its command without waiting for the welcome line loses it, which reproduces the commands the real matrix occasionally answers with its welcome line alone. |
 | `AVA_RESPONSE_DELAY` | `0` | Seconds the matrix takes before it answers. Useful to provoke timeouts. |
 | `AVA_IDLE_TIMEOUT` | `300` | Seconds an open connection may stay idle before it is dropped. |
 | `AVA_MIN_COMMAND_GAP` | `0` | Seconds between two commands below which the matrix logs that it is overloaded. `1` matches the pause the integration keeps. |

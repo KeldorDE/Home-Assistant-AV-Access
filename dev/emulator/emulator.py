@@ -6,6 +6,8 @@ integration relies on:
 
 * every command is answered on the connection it arrived on, and the matrix
   closes that connection afterwards,
+* the matrix greets every connection with its welcome line and discards what
+  the client sent before it,
 * a command the matrix does not know is answered with its welcome line, which
   is the only place the model is reported without being asked,
 * the lines of a multi line answer are separated by a single carriage return
@@ -167,8 +169,12 @@ class Config:
     # The real matrix closes the connection once it has answered. A firmware
     # that keeps it open is emulated with false.
     close_after_response: bool = True
-    # Some firmwares greet a client as soon as it connects.
-    greeting_on_connect: bool = False
+    # The real matrix greets a client as soon as it connects and discards what
+    # the client sent before the greeting, answering with the greeting alone.
+    greeting_on_connect: bool = True
+    # Seconds the matrix takes to greet a new connection. A client that sends
+    # its command right away loses it to the greeting.
+    greeting_delay: float = 0.0
     # Seconds the matrix takes before it answers.
     response_delay: float = 0.0
     # Seconds a connection may stay idle before the matrix drops it.
@@ -218,7 +224,8 @@ class Config:
             gateway=_env_str("AVA_GATEWAY", "192.168.1.1"),
             ip_mode=_env_str("AVA_IP_MODE", "dhcp").lower(),
             close_after_response=_env_bool("AVA_CLOSE_AFTER_RESPONSE", True),
-            greeting_on_connect=_env_bool("AVA_GREETING_ON_CONNECT", False),
+            greeting_on_connect=_env_bool("AVA_GREETING_ON_CONNECT", True),
+            greeting_delay=_env_float("AVA_GREETING_DELAY", 0.0),
             response_delay=_env_float("AVA_RESPONSE_DELAY", 0.0),
             idle_timeout=_env_float("AVA_IDLE_TIMEOUT", 300.0),
             hdcp_supported=_env_bool("AVA_HDCP_SUPPORTED", True),
@@ -1097,8 +1104,18 @@ class EmulatorServer:
 
         try:
             if self._config.greeting_on_connect:
+                if self._config.greeting_delay > 0:
+                    await asyncio.sleep(self._config.greeting_delay)
+
                 writer.write(format_response([self._matrix.greeting]))
                 await writer.drain()
+
+                if discarded := await _async_read_pending(reader):
+                    _LOGGER.info(
+                        "%s sent %r before the greeting, which the matrix discards",
+                        peer,
+                        discarded,
+                    )
 
             await self._async_serve_commands(reader, writer, peer)
 
@@ -1179,6 +1196,16 @@ class EmulatorServer:
         await writer.drain()
 
         return True
+
+
+async def _async_read_pending(reader: asyncio.StreamReader) -> bytes:
+    """Return what the client has already sent, without waiting for more."""
+    try:
+        async with asyncio.timeout(0):
+            return await reader.read(4096)
+
+    except TimeoutError:
+        return b""
 
 
 async def async_main() -> None:
