@@ -18,7 +18,7 @@
                     "scan_interval": "Polling interval"
                 },
                 "data_description": {
-                    "scan_interval": "Number of seconds between queries to the matrix. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant."
+                    "scan_interval": "Number of seconds between two reads of the routing. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant. The other settings of the ports are read once a minute."
                 },
                 "description": "Update the connection details of your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
                 "title": "AV Access HDMI matrix"
@@ -30,7 +30,7 @@
                     "scan_interval": "Polling interval"
                 },
                 "data_description": {
-                    "scan_interval": "Number of seconds between queries to the matrix. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant."
+                    "scan_interval": "Number of seconds between two reads of the routing. A shorter interval allows changes made on the front panel or via the remote control to be detected sooner by Home Assistant. The other settings of the ports are read once a minute."
                 },
                 "description": "Connect to your AV Access HDMI matrix. The port is the Telnet port of the matrix, which defaults to 23.",
                 "title": "AV Access HDMI matrix"

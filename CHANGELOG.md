@@ -11,6 +11,11 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Changed
+
+- Read the routing on every poll and the other settings of all ports once a minute instead of one input and one output per poll, so a change of the routing at the matrix shows up sooner while the matrix gets far fewer commands
+- Let the value of a command win over a poll for 5 instead of 15 seconds, so a change made at the matrix right after a command is no longer hidden as long
+
 ### Fixed
 
 - Require Home Assistant 2025.8 or later, the first release that provides everything the integration uses, so HACS no longer offers it to older versions on which it fails to load

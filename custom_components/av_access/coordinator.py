@@ -22,7 +22,12 @@ from .client import (
     AVAccessError,
     AVAccessStatus,
 )
-from .const import COMMAND_CONFIRM_TIMEOUT, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    COMMAND_CONFIRM_TIMEOUT,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    SETTINGS_POLL_INTERVAL,
+)
 
 if TYPE_CHECKING:
     from . import AVAccessConfigEntry
@@ -41,9 +46,6 @@ _Section = Literal["outputs", "edid", "hdcp", "audio_mute", "cec_auto", "cec_del
 # The sections whose values are boolean, which the reconciliation has to know
 # to keep the writes to the status type-safe.
 _BOOL_SECTIONS: tuple[_Section, ...] = ("hdcp", "audio_mute", "cec_auto")
-
-# The sections that belong to an input rather than to an output.
-_INPUT_SECTIONS: tuple[_Section, ...] = ("edid", "hdcp")
 
 
 @dataclass
@@ -119,18 +121,15 @@ class _PendingState:
         status: AVAccessStatus,
         read_keys: set[tuple[_Section, int]],
     ) -> None:
-        """Keep confirmed values on ports that were not read this poll.
+        """Keep the values of commands on ports that were not read this poll.
 
-        EDID and HDCP are read for a single input per poll, and audio mute and
-        the CEC settings are read for a single output per poll. A command that
-        changes another port
-        is only carried forward from a snapshot taken when the poll began. A
-        poll that started before the command holds the previous value in that
-        snapshot and would overwrite the confirmed one when its result is
-        published. The confirmed value therefore stands for every port not read
-        this poll until a later poll reads and reconciles it. Once its window has
-        elapsed the pending value is dropped, so a change made at the matrix is
-        no longer masked.
+        A port whose value the matrix did not report this poll is carried
+        forward from a snapshot taken when the poll began. A poll that started
+        before a command holds the previous value in that snapshot and would
+        overwrite the value of the command when its result is published. That
+        value therefore stands for every port not read this poll until a later
+        poll reads and reconciles it. Once its window has elapsed the pending
+        value is dropped, so a change made at the matrix is no longer masked.
         """
         now = self._time()
         expired: list[tuple[_Section, int]] = []
@@ -187,11 +186,6 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # The static device information is read once while setting up the entry.
         self.device_info = device_info
 
-        # The input whose EDID and HDCP are read during the next poll.
-        self._next_input = 1
-        # The output whose audio mute state is read during the next poll.
-        self._next_output = 1
-
         # Set while the state of a command is published, so entities can tell a
         # change they caused from a change made at the device.
         self._command_update = False
@@ -209,6 +203,13 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         # The most recent command per port. Commands for the same port queue up
         # behind each other, so only the latest one may publish its outcome.
         self._latest_commands: dict[tuple[_Section, int], object] = {}
+
+        # Loop time at which the last complete read of the settings started.
+        self._settings_read_at: float | None = None
+
+        # Set when the next poll has to read the settings regardless of the
+        # interval, for example after a command whose outcome is unknown.
+        self._settings_stale = False
 
     @property
     def command_update(self) -> bool:
@@ -431,19 +432,17 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         Whether the matrix applied the command is unknown, because a command
         that timed out may still have reached it. No value is kept against the
-        next poll, and that poll reads this very port instead of waiting for the
-        rotation to come by, so the actual state shows up right after it.
+        next poll, which shows the actual state. The routing is read on every
+        poll anyway, while the settings are read right away instead of after
+        the regular interval.
         """
         if self.data is None:
             return
 
         self._pending.discard(section, port)
 
-        # The routing is read on every poll anyway.
-        if section in _INPUT_SECTIONS:
-            self._next_input = port
-        elif section != "outputs":
-            self._next_output = port
+        if section != "outputs":
+            self._settings_stale = True
 
         values = dict(self.data[section])
 
@@ -490,16 +489,25 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             ) from err
 
     async def _async_fetch_status(self) -> AVAccessStatus:
-        """Read the state, sparing the matrix the commands that rarely change.
+        """Read the routing, and the settings of every port once they are due.
 
-        The matrix processes commands sequentially, so polling all values would
-        keep it busy. Routing is checked every poll, while EDID and HDCP rotate
-        through one input per poll and audio mute and the CEC settings rotate
-        through one output per poll. External changes are detected within one
-        rotation.
+        Somebody switches the routing at the front panel or with the remote
+        control, so it is read on every poll with a single command. EDID, HDCP,
+        audio mute and the CEC settings are hardly ever changed at the matrix
+        and cost twenty commands, so they are only read every
+        SETTINGS_POLL_INTERVAL seconds. Commands from Home Assistant need no
+        poll at all, as the matrix confirms them right away.
+
+        The first poll reads everything and also finds out which command
+        groups the matrix supports, which later polls must not change.
         """
+        started = self.hass.loop.time()
+
         if self.data is None:
-            return await self.client.async_get_status()
+            status = await self.client.async_get_status()
+            self._settings_read_at = started
+
+            return status
 
         outputs = await self.client.async_get_routing()
 
@@ -514,8 +522,22 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             ("outputs", output_port) for output_port in outputs
         ]
 
-        await self._async_read_input_states(edid, hdcp, read)
-        await self._async_read_output_states(audio_mute, cec_auto, cec_delay, read)
+        if self._settings_due(started):
+            # A command that fails while the settings are read asks for them
+            # again, which must survive the end of this read.
+            self._settings_stale = False
+
+            try:
+                await self._async_read_input_states(edid, hdcp, read)
+                await self._async_read_output_states(
+                    audio_mute, cec_auto, cec_delay, read
+                )
+
+            except BaseException:
+                self._settings_stale = True
+                raise
+
+            self._settings_read_at = started
 
         status: AVAccessStatus = {
             "outputs": outputs,
@@ -526,8 +548,8 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
             "cec_delay": cec_delay,
         }
 
-        # Reading the whole state takes several seconds, in which a command can
-        # change it. The values are therefore compared with the pending ones
+        # Reading the whole state takes a moment, in which a command can change
+        # it. The values are therefore compared with the pending ones
         # after the last read, so a value read before a command does not undo
         # it.
         read_keys = set(read)
@@ -544,36 +566,40 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         return status
 
+    def _settings_due(self, now: float) -> bool:
+        """Return whether this poll has to read the settings of the ports."""
+        return (
+            self._settings_stale
+            or self._settings_read_at is None
+            or now - self._settings_read_at >= SETTINGS_POLL_INTERVAL
+        )
+
     async def _async_read_input_states(
         self,
         edid: dict[int, int],
         hdcp: dict[int, bool],
         read: list[tuple[_Section, int]],
     ) -> None:
-        """Read the rotating states of the next input into the given values."""
-        input_number = self._next_input
-        input_count = max(self.device_info.input_count, 1)
+        """Read the EDID and the HDCP state of every input into the values.
 
-        if input_number > input_count:
-            input_number = 1
+        Only ports the matrix reported during the setup have entities, so no
+        other port is queried and no entity appears afterwards. A value the
+        matrix does not report this time keeps the previous one.
+        """
+        for input_number in range(1, self.device_info.input_count + 1):
+            if input_number in edid:
+                value = await self.client.async_get_input_edid(input_number)
 
-        self._next_input = input_number % input_count + 1
+                if value is not None:
+                    edid[input_number] = value
+                    read.append(("edid", input_number))
 
-        # Only ports the matrix already reported have entities, so no unknown
-        # port is queried and no entity appears after the setup.
-        if input_number in edid:
-            value = await self.client.async_get_input_edid(input_number)
+            if input_number in hdcp:
+                state = await self.client.async_get_input_hdcp(input_number)
 
-            if value is not None:
-                edid[input_number] = value
-                read.append(("edid", input_number))
-
-        if input_number in hdcp:
-            state = await self.client.async_get_input_hdcp(input_number)
-
-            if state is not None:
-                hdcp[input_number] = state
-                read.append(("hdcp", input_number))
+                if state is not None:
+                    hdcp[input_number] = state
+                    read.append(("hdcp", input_number))
 
     async def _async_read_output_states(
         self,
@@ -582,32 +608,29 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         cec_delay: dict[int, int],
         read: list[tuple[_Section, int]],
     ) -> None:
-        """Read the rotating states of the next output into the given values."""
-        output = self._next_output
-        output_count = max(self.device_info.output_count, 1)
+        """Read the audio mute and the CEC settings of every output.
 
-        if output > output_count:
-            output = 1
+        Like the inputs, only ports the matrix reported during the setup are
+        queried, and a value the matrix does not report keeps the previous one.
+        """
+        for output in range(1, self.device_info.output_count + 1):
+            if output in audio_mute:
+                muted = await self.client.async_get_output_audio_mute(output)
 
-        self._next_output = output % output_count + 1
+                if muted is not None:
+                    audio_mute[output] = muted
+                    read.append(("audio_mute", output))
 
-        if output in audio_mute:
-            muted = await self.client.async_get_output_audio_mute(output)
+            if output in cec_auto:
+                enabled = await self.client.async_get_output_cec_auto(output)
 
-            if muted is not None:
-                audio_mute[output] = muted
-                read.append(("audio_mute", output))
+                if enabled is not None:
+                    cec_auto[output] = enabled
+                    read.append(("cec_auto", output))
 
-        if output in cec_auto:
-            enabled = await self.client.async_get_output_cec_auto(output)
+            if output in cec_delay:
+                minutes = await self.client.async_get_output_cec_delay(output)
 
-            if enabled is not None:
-                cec_auto[output] = enabled
-                read.append(("cec_auto", output))
-
-        if output in cec_delay:
-            minutes = await self.client.async_get_output_cec_delay(output)
-
-            if minutes is not None:
-                cec_delay[output] = minutes
-                read.append(("cec_delay", output))
+                if minutes is not None:
+                    cec_delay[output] = minutes
+                    read.append(("cec_delay", output))

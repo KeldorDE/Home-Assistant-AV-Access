@@ -94,15 +94,14 @@ checks a matrix that is already set up and while the integration reloads. A
 command issued from Home Assistant, such as switching an output, goes ahead of
 the polling commands that are waiting.
 
-The routing is polled every 3 seconds by default, which is the value that also
-changes when somebody switches at the front panel of the matrix or with the
-remote control. The interval can be changed in the configuration dialog of the
-integration, next to the host and the port. EDID and HDCP cost one command per
-input, so they are read for one input per poll instead of for all of them at
-once. Audio mute states and the CEC settings are read for one output per poll
-as well. A change made
-at the device is therefore visible after one rotation over all inputs or
-outputs at the latest. A command issued by Home Assistant shows its value
+The routing is polled every 3 seconds by default, as it is what somebody
+switches at the front panel of the matrix or with the remote control, and a
+poll of it is a single command. The interval can be changed in the
+configuration dialog of the integration, next to the host and the port. EDID
+and HDCP of every input and audio mute and the CEC settings of every output are
+hardly ever changed at the matrix itself, so they are read once a minute. A
+change made at the device is therefore visible after one interval for the
+routing and after about a minute for the other settings. A command issued by Home Assistant shows its value
 right away, before it is sent to the matrix, so the dashboard reacts at once
 even while other commands are still waiting for their turn. The value the
 matrix confirms replaces it, and a command that fails restores the previous
@@ -126,7 +125,7 @@ The integration is configured through the Home Assistant UI:
 | --- | --- | --- |
 | Host | yes | Address of the AV Access HDMI matrix. |
 | Port | yes | Telnet port of the matrix. Defaults to `23`. |
-| Polling interval | yes | Seconds between queries to the matrix. Defaults to `3`, between `1` and `300`. |
+| Polling interval | yes | Seconds between two reads of the routing. Defaults to `3`, between `1` and `300`. The other settings are read once a minute. |
 
 Model, firmware version, the number of inputs and outputs and the link to the
 matrix web interface are read from the matrix, so the entities match the

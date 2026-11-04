@@ -18,7 +18,7 @@
                     "scan_interval": "Abfrageintervall"
                 },
                 "data_description": {
-                    "scan_interval": "Anzahl der Sekunden zwischen den Abfragen der Matrix. Ein kürzeres Intervall sorgt dafür, dass Änderungen am Frontpanel oder über die Fernbedienung schneller von Home Assistant erkannt werden."
+                    "scan_interval": "Anzahl der Sekunden zwischen zwei Abfragen des Routings. Ein kürzeres Intervall sorgt dafür, dass Änderungen am Frontpanel oder über die Fernbedienung schneller von Home Assistant erkannt werden. Die übrigen Einstellungen der Ports werden einmal pro Minute abgefragt."
                 },
                 "description": "Aktualisiere die Verbindungsdaten deiner AV Access HDMI-Matrix. Der Port ist der Telnet-Port der Matrix und standardmäßig auf 23 gesetzt.",
                 "title": "AV Access HDMI-Matrix"
@@ -30,7 +30,7 @@
                     "scan_interval": "Abfrageintervall"
                 },
                 "data_description": {
-                    "scan_interval": "Anzahl der Sekunden zwischen den Abfragen der Matrix. Ein kürzeres Intervall sorgt dafür, dass Änderungen am Frontpanel oder über die Fernbedienung schneller von Home Assistant erkannt werden."
+                    "scan_interval": "Anzahl der Sekunden zwischen zwei Abfragen des Routings. Ein kürzeres Intervall sorgt dafür, dass Änderungen am Frontpanel oder über die Fernbedienung schneller von Home Assistant erkannt werden. Die übrigen Einstellungen der Ports werden einmal pro Minute abgefragt."
                 },
                 "description": "Stelle eine Verbindung zu deiner AV Access HDMI-Matrix her. Der Port ist der Telnet-Port der Matrix und standardmäßig auf 23 gesetzt.",
                 "title": "AV Access HDMI-Matrix"

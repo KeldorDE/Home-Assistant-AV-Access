@@ -26,22 +26,26 @@ DEFAULT_NAME = "AV Access"
 
 MANUFACTURER = "AV Access"
 
-# Seconds between two polls. The routing is read on every poll, EDID and HDCP
-# for one input per poll. Changes made at the front panel or with the remote
-# control are only noticed by a poll, so a short interval keeps Home Assistant
-# in sync. A command takes less than a tenth of a second, so a poll is done
-# well within a second.
+# Seconds between two polls of the routing. Somebody switches it at the front
+# panel or with the remote control, which only a poll notices, so a short
+# interval keeps Home Assistant in sync. A poll of the routing is one command.
 DEFAULT_SCAN_INTERVAL = 3
 MIN_SCAN_INTERVAL = 1
 MAX_SCAN_INTERVAL = 300
 
+# Seconds between two reads of the settings of all ports, that is EDID, HDCP,
+# audio mute and the CEC settings. They are hardly ever changed at the matrix
+# itself and cost twenty commands, while every poll is a connection of its own,
+# so reading them once a minute spares the matrix most of the load.
+SETTINGS_POLL_INTERVAL = 60
+
 # Seconds a value a command confirmed wins over a value read from the matrix.
 # A poll that started before the command still reports the previous value and
 # would otherwise look like a change made at the front panel. The window
-# therefore has to outlast a whole poll, including the timeouts of a matrix that
-# answers slowly. After it the matrix is believed again, so a state it really
-# keeps is not hidden.
-COMMAND_CONFIRM_TIMEOUT = 15.0
+# therefore has to outlast a whole poll of about two seconds, with room for a
+# matrix that answers more slowly. After it the matrix is believed again, so a
+# change made at the front panel right after a command is not hidden for long.
+COMMAND_CONFIRM_TIMEOUT = 5.0
 CONNECT_TIMEOUT = 3.0
 READ_TIMEOUT = 3.0
 CLOSE_TIMEOUT = 1.0
