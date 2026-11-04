@@ -82,9 +82,9 @@ Support for additional AV Access devices may be added in the future.
 
 ## Requirements
 
-The integration talks to the matrix directly over its Telnet port, so nothing
-else has to be installed. The matrix only has to be reachable from Home
-Assistant.
+The integration needs Home Assistant 2025.8 or later. It talks to the matrix
+directly over its Telnet port, so nothing else has to be installed. The matrix
+only has to be reachable from Home Assistant.
 
 ## State updates
 

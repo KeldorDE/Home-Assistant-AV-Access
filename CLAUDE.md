@@ -7,7 +7,8 @@ This file provides guidance to Claude Code when working with code in this reposi
 Custom Home Assistant integration (`av_access`, distributed via HACS) that controls
 AV Access HDMI matrix switches (developed against the **4KMX44-H2**) over their
 Telnet port. Pure Python, no external requirements. Targets Python 3.13 and
-Home Assistant ≥ 2025.2.0.
+Home Assistant ≥ 2025.8.0 (the first release with `OptionsFlowWithReload`; keep
+the minimum in [hacs.json](hacs.json) and the README in sync when using newer APIs).
 
 ## Development environment
 

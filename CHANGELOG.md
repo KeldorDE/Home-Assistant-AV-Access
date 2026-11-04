@@ -11,6 +11,10 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Require Home Assistant 2025.8 or later, the first release that provides everything the integration uses, so HACS no longer offers it to older versions on which it fails to load
+
 ## [1.1.0]
 
 ### Changed
