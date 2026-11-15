@@ -8,7 +8,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .client import AVAccessClient, AVAccessError
+from .const import CONF_EDID_OPTIONS, CONF_EDID_OPTIONS_SOURCE
 from .coordinator import AVAccessCoordinator
+from .edid import async_read_edid_options
 
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
@@ -41,6 +43,23 @@ async def async_setup_entry(
         raise ConfigEntryNotReady(
             f"Unable to read the AV Access matrix device information: {err}"
         ) from err
+
+    # An entry that was set up before the EDID list was read from the matrix
+    # has none. It is read once here, the configuration dialog refreshes it.
+    if CONF_EDID_OPTIONS not in entry.data:
+        edid_options, edid_source = await async_read_edid_options(
+            hass,
+            entry.data[CONF_HOST],
+        )
+
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                **entry.data,
+                CONF_EDID_OPTIONS: edid_options,
+                CONF_EDID_OPTIONS_SOURCE: edid_source,
+            },
+        )
 
     coordinator = AVAccessCoordinator(
         hass=hass,

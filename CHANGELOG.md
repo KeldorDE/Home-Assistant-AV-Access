@@ -11,6 +11,23 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-15
+
+### Added
+
+- Read the list of EDIDs from the web interface of the matrix while setting up and reconfiguring, instead of a fixed list
+- Name every EDID yourself in the configuration dialog of the integration
+- Serve the page with the EDID list in the emulator (`AVA_HTTP_PORT`)
+
+### Changed
+
+- **Breaking:** The options of the EDID selects are the names of the matrix, such as `4K@60Hz 5.1ch audio With HDR`, instead of keys like `4k60_5_1ch_hdr`, and are no longer translated; adapt automations that select an EDID
+- No longer offer `EDID Write`, which only opens an upload dialog in the web interface
+
+### Fixed
+
+- Only accept a device in the configuration dialog that names a matrix model with its port layout, such as `4KMX44-H2`, instead of setting up anything that answers on the port and then failing to load
+
 ## [1.1.0] - 2026-11-04
 
 ### Changed

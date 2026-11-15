@@ -1,7 +1,9 @@
 # AV Access matrix emulator
 
 Emulates the Telnet port of an **AV Access 4KMX44-H2** HDMI matrix, so the
-integration can be developed and tested without the hardware.
+integration can be developed and tested without the hardware. The web interface
+is emulated as far as the integration reads it, which is the page with the list
+of EDIDs.
 
 The commands and the answers follow the official
 *API Command Set 4KMX44-H2 V1.0.0* and the behaviour the
@@ -45,7 +47,7 @@ The emulator can also be started without Docker, it only needs Python 3.13 and
 no dependencies:
 
 ```bash
-AVA_PORT=2323 python dev/emulator/emulator.py
+AVA_PORT=2323 AVA_HTTP_PORT=8023 python dev/emulator/emulator.py
 ```
 
 ## Trying it by hand
@@ -55,6 +57,7 @@ printf 'GET VER\r\n' | nc localhost 2323
 printf 'GET MP all\r\n' | nc localhost 2323
 printf 'SET SW hdmiin3 hdmiout1\r\n' | nc localhost 2323
 printf 'help\r\n' | nc localhost 2323
+curl -s http://localhost:8023/ | grep -o 'hdmiList:\[.*\]'
 ```
 
 An interactive `telnet localhost 2323` works as well, but the matrix closes
@@ -71,6 +74,7 @@ All settings are environment variables of the container.
 | --- | --- | --- |
 | `AVA_HOST` | `0.0.0.0` | Address the emulator listens on. |
 | `AVA_PORT` | `23` | Port the emulator listens on. |
+| `AVA_HTTP_PORT` | `80` | Port of the web interface, published as `8023` by the compose project. The integration always reads the EDID list from port 80 of the host. `0` turns the web interface off, which makes the integration fall back to its built-in list. |
 | `AVA_MODEL` | `4KMX44-H2` | Model reported by `GET VER` and the welcome line. The digits after `MX` define the number of ports, so `4KMX88-H2` emulates an 8x8 matrix. |
 | `AVA_INPUT_COUNT` | from the model | Number of HDMI inputs. |
 | `AVA_OUTPUT_COUNT` | from the model | Number of HDMI outputs. |
@@ -149,6 +153,19 @@ to test.
 
 Anything else, including a port the matrix does not have and a value outside
 its range, is answered with `Welcome to the 4KMX44-H2 matrix!`.
+
+## Web interface
+
+`GET /` answers with a page whose script defines the EDIDs the way the page of
+the real matrix does, including the entry *EDID Write* the integration leaves
+out:
+
+```
+hdmiList:[{desc:"Copy from output 1",val:"1"},…,{desc:"EDID Write",val:"15"}]
+```
+
+Every other path is answered with `404 Not Found`. The real matrix serves its
+whole web application there, of which the integration reads nothing else.
 
 ### EDID values
 

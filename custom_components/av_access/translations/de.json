@@ -9,7 +9,8 @@
         "error": {
             "cannot_connect": "Verbindung zur AV Access HDMI-Matrix fehlgeschlagen.",
             "unknown": "Unerwarteter Fehler.",
-            "invalid_port": "Der Port muss zwischen 1 und 65535 liegen."
+            "invalid_port": "Der Port muss zwischen 1 und 65535 liegen.",
+            "unsupported_device": "Das Gerät unter dieser Adresse hat sich nicht als AV Access HDMI-Matrix zu erkennen gegeben. Bitte prüfe Host und Port."
         },
         "step": {
             "reconfigure": {
@@ -63,44 +64,10 @@
         },
         "select": {
             "input_edid": {
-                "name": "EDID - Eingang {input}",
-                "state": {
-                    "1080p60_2_0ch": "1080p@60Hz 2.0ch Audio",
-                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch Audio mit HDR",
-                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch Audio mit HDR",
-                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch Audio mit HDR",
-                    "4k30_8bit_2_0ch": "4K@30Hz/8bit nur 2.0ch Audio ohne HDR",
-                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch Audio mit HDR",
-                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch Audio mit HDR",
-                    "5k_super_widescreen_2ch": "5K Super-Breitbild (2ch)",
-                    "5k_ultra_widescreen_2ch": "5K Ultra-Breitbild (2ch)",
-                    "copy_from_output_1": "Von Ausgang 1 kopieren",
-                    "copy_from_output_2": "Von Ausgang 2 kopieren",
-                    "copy_from_output_3": "Von Ausgang 3 kopieren",
-                    "copy_from_output_4": "Von Ausgang 4 kopieren",
-                    "smart_edid": "Smart EDID",
-                    "write_edid": "EDID schreiben"
-                }
+                "name": "EDID - Eingang {input}"
             },
             "input_edid_named": {
-                "name": "EDID - Eingang {input} - {name}",
-                "state": {
-                    "1080p60_2_0ch": "1080p@60Hz 2.0ch Audio",
-                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch Audio mit HDR",
-                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch Audio mit HDR",
-                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch Audio mit HDR",
-                    "4k30_8bit_2_0ch": "4K@30Hz/8bit nur 2.0ch Audio ohne HDR",
-                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch Audio mit HDR",
-                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch Audio mit HDR",
-                    "5k_super_widescreen_2ch": "5K Super-Breitbild (2ch)",
-                    "5k_ultra_widescreen_2ch": "5K Ultra-Breitbild (2ch)",
-                    "copy_from_output_1": "Von Ausgang 1 kopieren",
-                    "copy_from_output_2": "Von Ausgang 2 kopieren",
-                    "copy_from_output_3": "Von Ausgang 3 kopieren",
-                    "copy_from_output_4": "Von Ausgang 4 kopieren",
-                    "smart_edid": "Smart EDID",
-                    "write_edid": "EDID schreiben"
-                }
+                "name": "EDID - Eingang {input} - {name}"
             },
             "output_input": {
                 "name": "Ausgang {output}",
@@ -167,7 +134,7 @@
         },
         "step": {
             "init": {
-                "description": "Vergib eigene Namen für die Anschlüsse. Leere Felder behalten die Standardbezeichnung.",
+                "description": "Vergib eigene Namen für die Anschlüsse und die EDIDs. Leere Felder behalten die Standardbezeichnung.",
                 "sections": {
                     "input_labels": {
                         "data": {
@@ -196,9 +163,13 @@
                         },
                         "description": "Diese Namen ergänzen die Bezeichnung des Ausgangs und stehen als Sensor zur Verfügung, zum Beispiel als Überschrift im Dashboard.",
                         "name": "Ausgänge"
+                    },
+                    "edid_labels": {
+                        "description": "Diese Namen ersetzen die Bezeichnungen der Matrix bei der Auswahl der EDID eines Eingangs. Jedes Feld ist mit der Bezeichnung beschriftet, die die Matrix verwendet.",
+                        "name": "EDIDs"
                     }
                 },
-                "title": "Anschlüsse benennen"
+                "title": "Namen vergeben"
             }
         }
     },

@@ -2,23 +2,16 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import AVAccessConfigEntry
-from .const import (
-    EDID_OPTION_BY_VALUE,
-    EDID_VALUE_BY_OPTION,
-    TRANSLATION_KEY_INPUT_EDID,
-    TRANSLATION_KEY_OUTPUT_INPUT,
-)
+from .const import TRANSLATION_KEY_INPUT_EDID, TRANSLATION_KEY_OUTPUT_INPUT
 from .coordinator import AVAccessCoordinator
 from .entity import AVAccessEntity
-from .labels import input_options, values_by_option
+from .labels import edid_options, input_options, values_by_option
 
 # The coordinator handles all data updates, so the entities do not need to be
 # updated in parallel.
@@ -113,8 +106,6 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
 
     _attr_translation_key = TRANSLATION_KEY_INPUT_EDID
     _reports_external_change = True
-    # The EDID options are named by the matrix itself and are not renameable.
-    _attr_options: ClassVar[list[str]] = list(EDID_OPTION_BY_VALUE.values())
 
     def __init__(
         self,
@@ -126,6 +117,17 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
 
         self._input = input_number
 
+        # The matrix names its EDIDs itself, so the options are its own
+        # descriptions unless the user gave an EDID a name.
+        options = edid_options(
+            coordinator.config_entry.data,
+            coordinator.config_entry.options,
+        )
+
+        self._option_by_value = options
+        self._value_by_option = values_by_option(options)
+
+        self._attr_options = list(options.values())
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_input_{input_number}_edid"
         )
@@ -140,11 +142,11 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
         if value is None:
             return None
 
-        return EDID_OPTION_BY_VALUE.get(value)
+        return self._option_by_value.get(value)
 
     async def async_select_option(self, option: str) -> None:
         """Select an EDID."""
-        edid = EDID_VALUE_BY_OPTION.get(option)
+        edid = self._value_by_option.get(option)
 
         if edid is None:
             raise ServiceValidationError(f"Unsupported EDID option: {option}")

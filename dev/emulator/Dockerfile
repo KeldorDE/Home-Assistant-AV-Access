@@ -5,8 +5,8 @@ WORKDIR /app
 
 COPY emulator.py ./
 
-# Telnet port of the emulated matrix.
-EXPOSE 23
+# Telnet port and web interface of the emulated matrix.
+EXPOSE 23 80
 
 ENV PYTHONUNBUFFERED=1
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import logging
 from typing import Any
 
@@ -23,8 +24,12 @@ from .client import (
     AVAccessError,
     CommandPriority,
     is_same_device,
+    ports_from_model,
 )
 from .const import (
+    CONF_EDID_LABELS,
+    CONF_EDID_OPTIONS,
+    CONF_EDID_OPTIONS_SOURCE,
     CONF_INPUT_LABELS,
     CONF_OUTPUT_LABELS,
     DEFAULT_INPUT_COUNT,
@@ -33,12 +38,17 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    EDID_SOURCE_DEVICE,
     MAX_PORT,
     MAX_SCAN_INTERVAL,
     MIN_PORT,
     MIN_SCAN_INTERVAL,
 )
+from .edid import async_read_edid_options
 from .labels import (
+    device_edid_options,
+    edid_label_key,
+    edid_options,
     has_duplicates,
     input_label_key,
     input_options,
@@ -119,6 +129,22 @@ def _merge_labels(
     return merged
 
 
+def _edid_fields(descriptions: Mapping[int, str]) -> dict[str, int]:
+    """Return the form field of every EDID, mapped to the EDID value.
+
+    The list comes from the matrix, so there is no translation a field could be
+    labelled with. A field without one is labelled with its key, which is why
+    the description of the matrix serves as the key.
+    """
+    fields: dict[str, int] = {}
+
+    for value, description in descriptions.items():
+        field = description if description not in fields else f"{description} ({value})"
+        fields[field] = value
+
+    return fields
+
+
 class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for AV Access HDMI Matrix."""
 
@@ -131,6 +157,31 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> AVAccessOptionsFlow:
         """Return the options flow that names the ports."""
         return AVAccessOptionsFlow()
+
+    async def _async_edid_data(
+        self,
+        host: str,
+        previous: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Return the entry data describing the EDIDs the matrix offers."""
+        options, source = await async_read_edid_options(self.hass, host)
+
+        # A list the matrix once provided is worth more than the built-in one,
+        # so it survives a reconfiguration during which the web interface of
+        # the matrix cannot be read.
+        if (
+            source != EDID_SOURCE_DEVICE
+            and previous is not None
+            and previous.get(CONF_EDID_OPTIONS_SOURCE) == EDID_SOURCE_DEVICE
+            and previous.get(CONF_EDID_OPTIONS)
+        ):
+            options = previous[CONF_EDID_OPTIONS]
+            source = EDID_SOURCE_DEVICE
+
+        return {
+            CONF_EDID_OPTIONS: options,
+            CONF_EDID_OPTIONS_SOURCE: source,
+        }
 
     async def _async_validate(
         self,
@@ -161,7 +212,14 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "unknown"
 
         else:
-            return device_info, errors
+            # Anything that listens on the port answers something, for example
+            # an SSH server or a router. Only a matrix names a model that
+            # carries its port layout, such as the 44 of the 4KMX44-H2, in its
+            # version or in its welcome line.
+            if ports_from_model(device_info.model) is not None:
+                return device_info, errors
+
+            errors["base"] = "unsupported_device"
 
         return None, errors
 
@@ -185,7 +243,10 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return self.async_create_entry(
                     title=device_info.model or DEFAULT_NAME,
-                    data=user_input,
+                    data={
+                        **user_input,
+                        **await self._async_edid_data(user_input[CONF_HOST]),
+                    },
                 )
 
         return self.async_show_form(
@@ -231,7 +292,13 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
-                    data=user_input,
+                    data={
+                        **user_input,
+                        **await self._async_edid_data(
+                            user_input[CONF_HOST],
+                            reconfigure_entry.data,
+                        ),
+                    },
                     unique_id=device_info.unique_id,
                 )
 
@@ -246,13 +313,13 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
-    """Let the user name the inputs and outputs of the matrix."""
+    """Let the user name the inputs, outputs and EDIDs of the matrix."""
 
     async def async_step_init(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Handle the port naming step."""
+        """Handle the naming step."""
         entry = self.config_entry
 
         # The port counts are only known once the matrix has been queried.
@@ -272,10 +339,16 @@ class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
 
         stored_inputs = stored_labels(entry.options, CONF_INPUT_LABELS)
         stored_outputs = stored_labels(entry.options, CONF_OUTPUT_LABELS)
+        stored_edids = stored_labels(entry.options, CONF_EDID_LABELS)
+
+        edid_fields = _edid_fields(device_edid_options(entry.data))
+        edid_keys = [edid_label_key(value) for value in edid_fields.values()]
 
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            edid_input = user_input.get(CONF_EDID_LABELS, {})
+
             options = {
                 CONF_INPUT_LABELS: _merge_labels(
                     stored_inputs,
@@ -287,10 +360,21 @@ class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
                     user_input.get(CONF_OUTPUT_LABELS, {}),
                     output_keys,
                 ),
+                CONF_EDID_LABELS: _merge_labels(
+                    stored_edids,
+                    {
+                        edid_label_key(value): edid_input.get(field)
+                        for field, value in edid_fields.items()
+                    },
+                    edid_keys,
+                ),
             }
 
-            # Two inputs sharing an option would make a selection ambiguous.
-            if has_duplicates(input_options(options, input_count)):
+            # Two inputs or two EDIDs sharing an option would make a selection
+            # ambiguous.
+            if has_duplicates(input_options(options, input_count)) or has_duplicates(
+                edid_options(entry.data, options)
+            ):
                 errors["base"] = "duplicate_labels"
 
             else:
@@ -298,6 +382,7 @@ class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
 
             stored_inputs = options[CONF_INPUT_LABELS]
             stored_outputs = options[CONF_OUTPUT_LABELS]
+            stored_edids = options[CONF_EDID_LABELS]
 
         return self.async_show_form(
             step_id="init",
@@ -308,6 +393,24 @@ class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
                     ),
                     vol.Required(CONF_OUTPUT_LABELS): section(
                         _labels_schema(output_keys, stored_outputs),
+                    ),
+                    # The list of EDIDs is long and rarely renamed, so its
+                    # section starts collapsed.
+                    vol.Required(CONF_EDID_LABELS): section(
+                        vol.Schema(
+                            {
+                                vol.Optional(
+                                    field,
+                                    description={
+                                        "suggested_value": stored_edids.get(
+                                            edid_label_key(value), ""
+                                        )
+                                    },
+                                ): str
+                                for field, value in edid_fields.items()
+                            }
+                        ),
+                        {"collapsed": True},
                     ),
                 }
             ),

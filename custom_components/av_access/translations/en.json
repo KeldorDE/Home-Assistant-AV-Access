@@ -9,7 +9,8 @@
         "error": {
             "cannot_connect": "Failed to connect to the AV Access HDMI matrix.",
             "unknown": "Unexpected error.",
-            "invalid_port": "The port has to be between 1 and 65535."
+            "invalid_port": "The port has to be between 1 and 65535.",
+            "unsupported_device": "The device at this address did not identify itself as an AV Access HDMI matrix. Please check the host and the port."
         },
         "step": {
             "reconfigure": {
@@ -63,44 +64,10 @@
         },
         "select": {
             "input_edid": {
-                "name": "EDID - Input {input}",
-                "state": {
-                    "1080p60_2_0ch": "1080P@60Hz 2.0ch audio",
-                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch audio With HDR",
-                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch audio With HDR",
-                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch audio With HDR",
-                    "4k30_8bit_2_0ch": "4K@30Hz/8bit only 2.0ch audio Without HDR",
-                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch audio With HDR",
-                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch audio With HDR",
-                    "5k_super_widescreen_2ch": "5K Super Wide_2CH",
-                    "5k_ultra_widescreen_2ch": "5K Ultra Wide_2CH",
-                    "copy_from_output_1": "Copy from output 1",
-                    "copy_from_output_2": "Copy from output 2",
-                    "copy_from_output_3": "Copy from output 3",
-                    "copy_from_output_4": "Copy from output 4",
-                    "smart_edid": "Smart EDID",
-                    "write_edid": "EDID Write"
-                }
+                "name": "EDID - Input {input}"
             },
             "input_edid_named": {
-                "name": "EDID - Input {input} - {name}",
-                "state": {
-                    "1080p60_2_0ch": "1080P@60Hz 2.0ch audio",
-                    "4k30_2_0ch_hdr": "4K@30Hz 2.0ch audio With HDR",
-                    "4k30_5_1ch_hdr": "4K@30Hz 5.1ch audio With HDR",
-                    "4k30_7_1ch_hdr": "4K@30Hz 7.1ch audio With HDR",
-                    "4k30_8bit_2_0ch": "4K@30Hz/8bit only 2.0ch audio Without HDR",
-                    "4k60_2_0ch_hdr": "4K@60Hz 2.0ch audio With HDR",
-                    "4k60_5_1ch_hdr": "4K@60Hz 5.1ch audio With HDR",
-                    "5k_super_widescreen_2ch": "5K Super Wide_2CH",
-                    "5k_ultra_widescreen_2ch": "5K Ultra Wide_2CH",
-                    "copy_from_output_1": "Copy from output 1",
-                    "copy_from_output_2": "Copy from output 2",
-                    "copy_from_output_3": "Copy from output 3",
-                    "copy_from_output_4": "Copy from output 4",
-                    "smart_edid": "Smart EDID",
-                    "write_edid": "EDID Write"
-                }
+                "name": "EDID - Input {input} - {name}"
             },
             "output_input": {
                 "name": "Output {output}",
@@ -167,7 +134,7 @@
         },
         "step": {
             "init": {
-                "description": "Give the ports a name of your own. Empty fields keep the default name.",
+                "description": "Give the ports and the EDIDs a name of your own. Empty fields keep the default name.",
                 "sections": {
                     "input_labels": {
                         "data": {
@@ -196,9 +163,13 @@
                         },
                         "description": "These names are added to the name of the output and are available as a sensor, for example as a heading in a dashboard.",
                         "name": "Outputs"
+                    },
+                    "edid_labels": {
+                        "description": "These names replace the descriptions of the matrix when you select the EDID of an input. Every field is labelled with the description the matrix uses.",
+                        "name": "EDIDs"
                     }
                 },
-                "title": "Name the ports"
+                "title": "Names"
             }
         }
     },

@@ -18,7 +18,9 @@ services:
   # Emulates the Telnet port of an AV Access 4KMX44-H2 matrix, so the
   # integration can be used without the hardware. Add the integration with the
   # host "matrix-emulator" and port 23, or with the address of this machine and
-  # port 2323 when Home Assistant runs outside of this compose project.
+  # port 2323 when Home Assistant runs outside of this compose project. The
+  # page of the web interface with the EDID list is reachable on port 8023 of
+  # this machine.
   matrix-emulator:
     build: ./emulator
     container_name: av-access-matrix-emulator
@@ -35,6 +37,7 @@ services:
       - AVA_STATE_FILE=/data/state.json
     ports:
       - "2323:23"
+      - "8023:80"
     volumes:
       - emulator-state:/data
 

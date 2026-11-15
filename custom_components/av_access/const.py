@@ -12,9 +12,10 @@ EVENT_EXTERNAL_CHANGE = "av_access_external_change"
 # Carries the name of the matrix to the logbook, which shows it as the origin.
 ATTR_DEVICE_NAME = "device_name"
 
-# Option keys holding the user defined names of the ports.
+# Option keys holding the user defined names of the ports and of the EDIDs.
 CONF_INPUT_LABELS = "input_labels"
 CONF_OUTPUT_LABELS = "output_labels"
+CONF_EDID_LABELS = "edid_labels"
 
 # Shown by the name sensors while a port has no user defined name.
 DEFAULT_INPUT_NAME = "HDMI {number}"
@@ -98,25 +99,32 @@ PLACEHOLDER_NAME = "name"
 CEC_DELAY_MIN = 1
 CEC_DELAY_MAX = 30
 
-# The matrix expects and reports the EDID as a number.
-EDID_OPTION_BY_VALUE: dict[int, str] = {
-    1: "copy_from_output_1",
-    2: "copy_from_output_2",
-    3: "copy_from_output_3",
-    4: "copy_from_output_4",
-    5: "4k60_5_1ch_hdr",
-    6: "4k60_2_0ch_hdr",
-    7: "4k30_7_1ch_hdr",
-    8: "4k30_5_1ch_hdr",
-    9: "4k30_2_0ch_hdr",
-    10: "4k30_8bit_2_0ch",
-    11: "1080p60_2_0ch",
-    12: "5k_ultra_widescreen_2ch",
-    13: "5k_super_widescreen_2ch",
-    14: "smart_edid",
-    15: "write_edid",
-}
+# Entry data holding the EDIDs the matrix offers, read from its web interface
+# while the entry is set up, and whether the matrix really provided them.
+CONF_EDID_OPTIONS = "edid_options"
+CONF_EDID_OPTIONS_SOURCE = "edid_options_source"
+EDID_SOURCE_DEVICE = "device"
+EDID_SOURCE_FALLBACK = "fallback"
 
-EDID_VALUE_BY_OPTION: dict[str, int] = {
-    option: value for value, option in EDID_OPTION_BY_VALUE.items()
+# Seconds the web interface may take to hand out its page with the EDID list.
+EDID_LIST_TIMEOUT = 10.0
+
+# Stands in for the list of a matrix whose web interface cannot be read. It is
+# the list of the 4KMX44-H2 with firmware ARM 2.8, MCU 3.3 and WEB 1.08, keyed
+# by the number the matrix expects and reports.
+DEFAULT_EDID_OPTIONS: dict[str, str] = {
+    "1": "Copy from output 1",
+    "2": "Copy from output 2",
+    "3": "Copy from output 3",
+    "4": "Copy from output 4",
+    "5": "4K@60Hz 5.1ch audio With HDR",
+    "6": "4K@60Hz 2.0ch audio With HDR",
+    "7": "4K@30Hz 7.1ch audio With HDR",
+    "8": "4K@30Hz 5.1ch audio With HDR",
+    "9": "4K@30Hz 2.0ch audio With HDR",
+    "10": "4K@30Hz/8bit only 2.0ch audio Without HDR",
+    "11": "1080P@60Hz 2.0ch audio",
+    "12": "5K Ultra Wide_2CH",
+    "13": "5K Super Wide_2CH",
+    "14": "Smart EDID",
 }

@@ -131,14 +131,20 @@ Model, firmware version, the number of inputs and outputs and the link to the
 matrix web interface are read from the matrix, so the entities match the
 connected device.
 
+The list of EDIDs is read from the web interface of the matrix on port 80 while
+the integration is set up or reconfigured, as it depends on the firmware. If
+the web interface cannot be reached, the list of the 4KMX44-H2 is used instead
+and the next reconfiguration reads it again. The entry of the web interface
+that uploads an EDID file is not offered.
+
 The connection details can be changed later without losing the entities through
 **Settings → Devices & services → AV Access → Reconfigure**. The address may
 also change, for example after the matrix received a new IP address; the
 entities keep their history as long as it is the same model.
 
-### Naming the ports
+### Naming the ports and EDIDs
 
-Inputs and outputs can be given your own names through
+Inputs, outputs and EDIDs can be given your own names through
 **Settings → Devices & services → AV Access → Configure**.
 
 An input name replaces `HDMI 1` and so on in the input selection of every
@@ -158,8 +164,14 @@ Every port also provides a name sensor, so a name can be used in a dashboard,
 for example as a heading above the select of an output. Ports without a name
 report `HDMI 1` or `Output 1`.
 
-The EDID options are named by the matrix itself and are therefore not
-renameable. Renaming a port only changes the name of its entities and the
+The EDID options are named by the matrix itself, for example
+`4K@60Hz 5.1ch audio With HDR`. The section **EDIDs** of the same dialog has
+one field per EDID, labelled with the name the matrix uses, to replace it with
+a name of your own. Leaving a field empty restores the name of the matrix, and
+every EDID name must be unique. Actions and automations select an EDID by the
+name that is shown, so they have to be adapted after renaming one.
+
+Renaming a port only changes the name of its entities and the
 options of a select, not the entity ID. To change the name or the entity ID of
 a single entity, use the entity settings in Home Assistant.
 
@@ -196,12 +208,12 @@ Every output provides a diagnostic sensor with the number of the input that is
 currently routed to it. It is the raw counterpart of the select, which reports
 the name of the input.
 
-Combined with `state_translated`, the EDID that currently applies to an output
-can be resolved without a helper entity:
+Combined with it, the EDID that currently applies to an output can be resolved
+without a helper entity:
 
 ```jinja
 {% set input = states('sensor.4kmx44_h2_output_1_input_number') %}
-{{ state_translated('select.4kmx44_h2_edid_input_' ~ input) }}
+{{ states('select.4kmx44_h2_edid_input_' ~ input) }}
 ```
 
 The `4kmx44_h2` part of the entity ID is derived from the model of the matrix,

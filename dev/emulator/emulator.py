@@ -1,4 +1,4 @@
-"""Telnet emulator of an AV Access 4KMX44-H2 HDMI matrix.
+"""Emulator of the Telnet port of an AV Access 4KMX44-H2 HDMI matrix.
 
 The emulator speaks the line based protocol of the "API Command Set
 4KMX44-H2 V1.0.0" document and reproduces the behaviour the client of the
@@ -12,6 +12,10 @@ integration relies on:
   is the only place the model is reported without being asked,
 * the lines of a multi line answer are separated by a single carriage return
   and only the last one ends with CRLF.
+
+The web interface of the matrix is emulated as far as the integration reads
+it: the page at / carries the list of EDIDs in its script, which is the only
+place the matrix names them.
 
 Everything the emulated matrix reports can be changed through environment
 variables, so the integration can be exercised against a matrix without HDCP
@@ -77,6 +81,30 @@ EDID_NAMES: dict[int, str] = {
     14: "Smart EDID",
     15: "EDID Write",
 }
+
+# The page of the web interface is a single file with the whole application in
+# its script. The integration only reads the EDID list from it, so the emulator
+# hands out nothing but the part of the script that defines it.
+WEB_PAGE = """<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>
+    {model}
+  </title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script>new Vue({{data:function(){{return{{hdmiList:[{edid_list}]}}}}}})</script>
+</body>
+
+</html>
+"""
+
+# Seconds a client of the web interface may take to send its request.
+HTTP_REQUEST_TIMEOUT = 5.0
 
 # Defaults of the matrix as documented by the command set.
 DEFAULT_EDID = 5
@@ -156,6 +184,9 @@ class Config:
 
     host: str = "0.0.0.0"
     port: int = 23
+    # Port of the web interface, which the integration reads the EDID list
+    # from. Zero turns the web interface off.
+    http_port: int = 80
     model: str = "4KMX44-H2"
     sw_version: str = "1.0"
     arm_version: str = "1.0"
@@ -215,6 +246,7 @@ class Config:
         return cls(
             host=_env_str("AVA_HOST", "0.0.0.0"),
             port=_env_int("AVA_PORT", 23),
+            http_port=_env_int("AVA_HTTP_PORT", 80),
             model=model,
             sw_version=_env_str("AVA_SW_VERSION", "1.0"),
             arm_version=_env_str("AVA_ARM_VERSION", "1.0"),
@@ -437,6 +469,15 @@ class Matrix:
     def greeting(self) -> str:
         """Return the welcome line of the matrix."""
         return GREETING.format(model=self._config.model)
+
+    @property
+    def web_page(self) -> str:
+        """Return the page of the web interface, which lists the EDIDs."""
+        edid_list = ",".join(
+            f'{{desc:"{name}",val:"{value}"}}' for value, name in EDID_NAMES.items()
+        )
+
+        return WEB_PAGE.format(model=self._config.model, edid_list=edid_list)
 
     def handle_command(self, command: str) -> list[str]:
         """Return the lines the matrix answers a command with."""
@@ -1076,7 +1117,83 @@ class EmulatorServer:
         )
 
         async with server:
-            await asyncio.gather(server.serve_forever(), self._async_drift())
+            await asyncio.gather(
+                server.serve_forever(),
+                self._async_drift(),
+                self._async_serve_web(),
+            )
+
+    async def _async_serve_web(self) -> None:
+        """Serve the page of the web interface until the task is cancelled."""
+        if self._config.http_port <= 0:
+            _LOGGER.info("The web interface is turned off")
+
+            return
+
+        server = await asyncio.start_server(
+            self._async_handle_web_client,
+            self._config.host,
+            self._config.http_port,
+        )
+
+        _LOGGER.info("The web interface listens on port %d", self._config.http_port)
+
+        async with server:
+            await server.serve_forever()
+
+    async def _async_handle_web_client(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
+        """Answer a single request to the web interface."""
+        peer = writer.get_extra_info("peername")
+
+        try:
+            async with asyncio.timeout(HTTP_REQUEST_TIMEOUT):
+                head = await reader.readuntil(b"\r\n\r\n")
+
+            request = head.split(b"\r\n", 1)[0].decode("latin-1")
+            method, _, rest = request.partition(" ")
+            path = rest.partition(" ")[0]
+
+            if method == "GET" and path.partition("?")[0] in {"/", "/index.html"}:
+                status = "200 OK"
+                body = self._matrix.web_page.encode()
+            else:
+                status = "404 Not Found"
+                body = b""
+
+            _LOGGER.info("%s requested %r, answered with %s", peer, request, status)
+
+            # The headers are the ones the web server of the real matrix sends.
+            writer.write(
+                (
+                    f"HTTP/1.1 {status}\r\n"
+                    "Server: webnet 2.0.0\r\n"
+                    "Cache-Control: no-store,max-age=0\r\n"
+                    "Content-Type: text/html\r\n"
+                    f"Content-Length: {len(body)}\r\n"
+                    "Connection: close\r\n"
+                    "\r\n"
+                ).encode()
+                + body
+            )
+            await writer.drain()
+
+        except (
+            ConnectionError,
+            TimeoutError,
+            asyncio.IncompleteReadError,
+            asyncio.LimitOverrunError,
+        ) as err:
+            _LOGGER.debug("%s sent no complete request: %r", peer, err)
+
+        finally:
+            writer.close()
+
+            with suppress(ConnectionError, OSError):
+                await writer.wait_closed()
 
     async def _async_drift(self) -> None:
         """Change the state of the matrix on its own, as the front panel does."""

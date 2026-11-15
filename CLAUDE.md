@@ -23,6 +23,7 @@ make emulator-reset  # return the emulated matrix to its factory state
 
 - Home Assistant is reachable at **http://localhost:8124/**
 - Login for the AI user: **user `claude`, password `claude`**
+- The emulator also serves the web page with the EDID list on port 80 (`localhost:8023` from the host machine).
 - `custom_components/av_access` is bind-mounted into the container; `dev/config` is the HA config directory (mostly git-ignored).
 - Add the integration in HA with host `matrix-emulator`, port `23`. From the host machine the emulator listens on `localhost:2323`.
 - Talk to the emulator by hand: `printf 'GET MP all\r\n' | nc localhost 2323`
@@ -49,8 +50,9 @@ All code is in [custom_components/av_access/](custom_components/av_access/):
 - [coordinator.py](custom_components/av_access/coordinator.py) — `AVAccessCoordinator` (`DataUpdateCoordinator`). Every poll reads the routing (1 command, `scan_interval`); the settings of all ports (EDID/HDCP/mute/CEC, 20 commands) only every `SETTINGS_POLL_INTERVAL` (60 s) or right after a failed settings command (`_settings_stale`). Only the first refresh (`client.async_get_status`) detects HDCP/CEC support; later polls only query ports that already have values and keep the previous value when a read returns nothing. Set-commands go through `_async_set_value`: the requested value is published before the command is sent (optimistic), replaced by the matrix confirmation, and reverted if the command fails or is cancelled; the latest command per port wins. `_PendingState` keeps the value for `COMMAND_CONFIRM_TIMEOUT` so an in-flight poll doesn't overwrite it. Entities pass `self._context` so every entity a command changes (e.g. the input number sensor) carries the service call context into the logbook.
 - [entity.py](custom_components/av_access/entity.py) — `AVAccessEntity` base. Detects changes that came from a poll (not from HA) and fires `EVENT_EXTERNAL_CHANGE` so [logbook.py](custom_components/av_access/logbook.py) shows "changed at the matrix". Also handles naming after user-defined port labels.
 - Platforms: [select.py](custom_components/av_access/select.py) (output routing, EDID), [switch.py](custom_components/av_access/switch.py) (HDCP, audio mute, CEC auto), [number.py](custom_components/av_access/number.py) (CEC delay), [button.py](custom_components/av_access/button.py) (CEC power on/off), [sensor.py](custom_components/av_access/sensor.py) (port names, routed input number). HDCP/CEC entities are only created when the matrix supports those commands.
-- [config_flow.py](custom_components/av_access/config_flow.py) — user step, reconfigure (same model may change host, unique ID from `build_unique_id`), options flow for port labels (`OptionsFlowWithReload`). Label helpers are in [labels.py](custom_components/av_access/labels.py).
-- [const.py](custom_components/av_access/const.py) — timing constants, translation keys, EDID value ↔ option mapping.
+- [config_flow.py](custom_components/av_access/config_flow.py) — user step, reconfigure (same model may change host, unique ID from `build_unique_id`), options flow for port and EDID labels (`OptionsFlowWithReload`). Label helpers are in [labels.py](custom_components/av_access/labels.py).
+- [edid.py](custom_components/av_access/edid.py) — reads the EDID list from the web interface of the matrix (`GET http://<host>/`, the `hdmiList` array in the page script; the Telnet API has no command for it). The config flow stores it in `entry.data["edid_options"]` (user step and reconfigure, `__init__.py` once for older entries) and falls back to `DEFAULT_EDID_OPTIONS`. The select options are the descriptions of the matrix, or the names from the `edid_labels` options, so they have no state translations.
+- [const.py](custom_components/av_access/const.py) — timing constants, translation keys, fallback EDID list.
 - [diagnostics.py](custom_components/av_access/diagnostics.py) — redacts addresses.
 
 ## Conventions
