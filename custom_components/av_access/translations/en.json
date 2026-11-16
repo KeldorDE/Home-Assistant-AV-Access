@@ -64,35 +64,35 @@
         },
         "select": {
             "input_edid": {
-                "name": "EDID - Input {input}"
+                "name": "EDID - Input {input}",
+                "state_attributes": {
+                    "edid_options": {
+                        "name": "EDID options"
+                    }
+                }
             },
             "input_edid_named": {
-                "name": "EDID - Input {input} - {name}"
+                "name": "EDID - Input {input} - {name}",
+                "state_attributes": {
+                    "edid_options": {
+                        "name": "EDID options"
+                    }
+                }
             },
             "output_input": {
                 "name": "Output {output}",
-                "state": {
-                    "hdmi_1": "HDMI 1",
-                    "hdmi_2": "HDMI 2",
-                    "hdmi_3": "HDMI 3",
-                    "hdmi_4": "HDMI 4",
-                    "hdmi_5": "HDMI 5",
-                    "hdmi_6": "HDMI 6",
-                    "hdmi_7": "HDMI 7",
-                    "hdmi_8": "HDMI 8"
+                "state_attributes": {
+                    "input_options": {
+                        "name": "Input options"
+                    }
                 }
             },
             "output_input_named": {
                 "name": "Output {output} - {name}",
-                "state": {
-                    "hdmi_1": "HDMI 1",
-                    "hdmi_2": "HDMI 2",
-                    "hdmi_3": "HDMI 3",
-                    "hdmi_4": "HDMI 4",
-                    "hdmi_5": "HDMI 5",
-                    "hdmi_6": "HDMI 6",
-                    "hdmi_7": "HDMI 7",
-                    "hdmi_8": "HDMI 8"
+                "state_attributes": {
+                    "input_options": {
+                        "name": "Input options"
+                    }
                 }
             }
         },

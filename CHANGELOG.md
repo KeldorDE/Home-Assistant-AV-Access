@@ -15,9 +15,11 @@ Tags are named after the version itself, for example `1.0.0`.
 
 - Repair issue while the EDID list cannot be read, retried every 15 minutes and on every start
 - EDID names follow their EDID when the matrix offers a different list, names without a match are reported as a repair issue
+- Attributes `input_options` and `edid_options` on the selects to select an input or EDID by its number
 
 ### Changed
 
+- **Breaking:** Inputs without a name are offered as `HDMI 1` instead of `hdmi_1`, matching their name sensor; adapt automations that select `hdmi_1` and so on
 - Read the EDID list of older entries in the background instead of delaying the start
 
 ### Fixed

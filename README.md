@@ -170,7 +170,8 @@ The EDID options are named by the matrix itself, for example
 one field per EDID, labelled with the name the matrix uses, to replace it with
 a name of your own. Leaving a field empty restores the name of the matrix, and
 every EDID name must be unique. Actions and automations select an EDID by the
-name that is shown, so they have to be adapted after renaming one.
+name that is shown, so they have to be adapted after renaming one, unless they
+select it by its number (see [Selecting by number](#selecting-by-number)).
 
 If the matrix offers a different list of EDIDs, for example after a firmware
 update, every name follows the EDID description it was given for. A name whose
@@ -220,6 +221,32 @@ without a helper entity:
 ```jinja
 {% set input = states('sensor.4kmx44_h2_output_1_input_number') %}
 {{ states('select.4kmx44_h2_edid_input_' ~ input) }}
+```
+
+### Selecting by number
+
+The options of a select are the names that are shown, so an action that names
+an input or an EDID breaks once it is renamed. The output selects therefore
+provide the attribute `input_options` and the EDID selects the attribute
+`edid_options`, which map the number of every input or EDID to its current
+option. The number of an EDID is the one the matrix uses, and the attribute
+shows the numbers of your matrix. An action that picks the option by number
+keeps working after renaming:
+
+```yaml
+action: select.select_option
+target:
+  entity_id: select.4kmx44_h2_output_4
+data:
+  option: "{{ state_attr('select.4kmx44_h2_output_4', 'input_options')[2] }}"
+```
+
+```yaml
+action: select.select_option
+target:
+  entity_id: select.4kmx44_h2_edid_input_2
+data:
+  option: "{{ state_attr('select.4kmx44_h2_edid_input_2', 'edid_options')[11] }}"
 ```
 
 The `4kmx44_h2` part of the entity ID is derived from the model of the matrix,

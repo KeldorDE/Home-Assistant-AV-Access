@@ -1,8 +1,9 @@
 """Resolve the user defined names of the matrix ports and EDIDs.
 
-An input without a name falls back to a translation key, so the default select
-options stay localized. As soon as a name is configured it is shown as entered.
-An EDID without a name is shown the way the matrix itself names it.
+An input without a name is offered as "HDMI 1" and so on, the same text its
+name sensor reports, so an automation can pass the state of the sensor to the
+select. As soon as a name is configured it is shown as entered. An EDID without
+a name is shown the way the matrix itself names it.
 """
 
 from __future__ import annotations
@@ -39,11 +40,6 @@ def edid_label_key(value: int) -> str:
     return f"{_EDID_LABEL_PREFIX}{value}"
 
 
-def default_input_option(number: int) -> str:
-    """Return the option used while an input has no name."""
-    return f"hdmi_{number}"
-
-
 def stored_labels(options: Mapping[str, Any], key: str) -> dict[str, str]:
     """Return the non-empty names stored under the given option key."""
     stored = options.get(key)
@@ -63,12 +59,7 @@ def input_options(
     input_count: int,
 ) -> dict[int, str]:
     """Return the options of an output select, keyed by input number."""
-    names = stored_labels(options, CONF_INPUT_LABELS)
-
-    return {
-        number: names.get(input_label_key(number)) or default_input_option(number)
-        for number in range(1, input_count + 1)
-    }
+    return {number: input_name(options, number) for number in range(1, input_count + 1)}
 
 
 def device_edid_options(data: Mapping[str, Any]) -> dict[int, str]:

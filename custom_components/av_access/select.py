@@ -8,7 +8,12 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import AVAccessConfigEntry
-from .const import TRANSLATION_KEY_INPUT_EDID, TRANSLATION_KEY_OUTPUT_INPUT
+from .const import (
+    ATTR_EDID_OPTIONS,
+    ATTR_INPUT_OPTIONS,
+    TRANSLATION_KEY_INPUT_EDID,
+    TRANSLATION_KEY_OUTPUT_INPUT,
+)
 from .coordinator import AVAccessCoordinator
 from .entity import AVAccessEntity
 from .labels import edid_options, input_options, values_by_option
@@ -52,6 +57,10 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
     _attr_translation_key = TRANSLATION_KEY_OUTPUT_INPUT
     _reports_external_change = True
 
+    # The mapping only changes with the names, which reloads the entry, so it
+    # would only fill the database with copies.
+    _unrecorded_attributes = frozenset({ATTR_INPUT_OPTIONS})
+
     def __init__(
         self,
         coordinator: AVAccessCoordinator,
@@ -71,6 +80,10 @@ class AVAccessOutputSelect(AVAccessEntity, SelectEntity):
         self._value_by_option = values_by_option(options)
 
         self._attr_options = list(options.values())
+
+        # An automation selecting an input by its name breaks when the input is
+        # renamed, while its number stays.
+        self._attr_extra_state_attributes = {ATTR_INPUT_OPTIONS: dict(options)}
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_output_{output}_input"
         )
@@ -107,6 +120,9 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
     _attr_translation_key = TRANSLATION_KEY_INPUT_EDID
     _reports_external_change = True
 
+    # Like the inputs of an output, the mapping only changes with a reload.
+    _unrecorded_attributes = frozenset({ATTR_EDID_OPTIONS})
+
     def __init__(
         self,
         coordinator: AVAccessCoordinator,
@@ -128,6 +144,11 @@ class AVAccessEdidSelect(AVAccessEntity, SelectEntity):
         self._value_by_option = values_by_option(options)
 
         self._attr_options = list(options.values())
+
+        # The number is the value the matrix itself uses for an EDID, so it
+        # survives renaming the EDID as well as a list that changes its order.
+        self._attr_extra_state_attributes = {ATTR_EDID_OPTIONS: dict(options)}
+
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_input_{input_number}_edid"
         )

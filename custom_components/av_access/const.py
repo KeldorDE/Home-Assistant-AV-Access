@@ -12,6 +12,11 @@ EVENT_EXTERNAL_CHANGE = "av_access_external_change"
 # Carries the name of the matrix to the logbook, which shows it as the origin.
 ATTR_DEVICE_NAME = "device_name"
 
+# Attributes of the selects mapping the number of an input or an EDID to its
+# option, so an automation can select by a number that no name changes.
+ATTR_INPUT_OPTIONS = "input_options"
+ATTR_EDID_OPTIONS = "edid_options"
+
 # Option keys holding the user defined names of the ports and of the EDIDs.
 CONF_INPUT_LABELS = "input_labels"
 CONF_OUTPUT_LABELS = "output_labels"
