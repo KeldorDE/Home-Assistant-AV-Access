@@ -30,31 +30,41 @@ async def async_setup_entry(
 ) -> None:
     """Set up AV Access HDMI matrix switch entities."""
     coordinator = entry.runtime_data
+    data = coordinator.data
+    device = coordinator.device_info
 
-    # A matrix that does not support HDCP reports no HDCP state at all.
-    async_add_entities(
-        AVAccessHdcpSwitch(
-            coordinator=coordinator,
-            input_number=input_number,
-        )
-        for input_number in sorted(coordinator.data["hdcp"])
-    )
-    async_add_entities(
-        AVAccessAudioMuteSwitch(
-            coordinator=coordinator,
-            output=output,
-        )
-        for output in sorted(coordinator.data["audio_mute"])
-    )
+    # A matrix that does not support a setting reports it for no port at all.
+    # One that does gets an entity on every port, even if the answer of a
+    # single port got lost during the setup. The next poll fills in its value.
+    inputs = range(1, device.input_count + 1)
+    outputs = range(1, device.output_count + 1)
 
-    # A matrix that does not support CEC reports no CEC state at all.
-    async_add_entities(
-        AVAccessCecAutoSwitch(
-            coordinator=coordinator,
-            output=output,
+    if data["hdcp"]:
+        async_add_entities(
+            AVAccessHdcpSwitch(
+                coordinator=coordinator,
+                input_number=input_number,
+            )
+            for input_number in inputs
         )
-        for output in sorted(coordinator.data["cec_auto"])
-    )
+
+    if data["audio_mute"]:
+        async_add_entities(
+            AVAccessAudioMuteSwitch(
+                coordinator=coordinator,
+                output=output,
+            )
+            for output in outputs
+        )
+
+    if data["cec_auto"]:
+        async_add_entities(
+            AVAccessCecAutoSwitch(
+                coordinator=coordinator,
+                output=output,
+            )
+            for output in outputs
+        )
 
 
 class AVAccessHdcpSwitch(AVAccessEntity, SwitchEntity):

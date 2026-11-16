@@ -177,5 +177,15 @@
         "command_failed": {
             "message": "The matrix did not carry out the command: {error}"
         }
+    },
+    "issues": {
+        "edid_list_fallback": {
+            "description": "Home Assistant could not read the list of EDIDs from the web interface of {name} at http://{host}/ and offers a built-in list instead, which may not match the firmware of your matrix.\n\nThe integration tries again every 15 minutes and on every start, and this message disappears once it succeeds. Make sure that the web interface of the matrix is reachable from Home Assistant.",
+            "title": "{name}: EDID list could not be read"
+        },
+        "edid_labels_changed": {
+            "description": "{name} now offers a different list of EDIDs. Your own names follow the EDID they were given for, but the following ones no longer match the description they were given for. Each shows that description and the EDID it now belongs to, or – if it was removed because the matrix no longer offers its EDID:\n\n{labels}\n\nCheck these names in the options of the integration and adapt automations and scripts that select one of them. Saving the options dismisses this message.",
+            "title": "{name}: check the names of the EDIDs"
+        }
     }
 }

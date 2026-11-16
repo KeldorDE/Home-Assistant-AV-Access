@@ -31,9 +31,12 @@ def output_label_key(number: int) -> str:
     return f"output_{number}"
 
 
+_EDID_LABEL_PREFIX = "edid_"
+
+
 def edid_label_key(value: int) -> str:
     """Return the key holding the name of an EDID."""
-    return f"edid_{value}"
+    return f"{_EDID_LABEL_PREFIX}{value}"
 
 
 def default_input_option(number: int) -> str:
@@ -130,6 +133,61 @@ def output_name(options: Mapping[str, Any], number: int) -> str:
     return output_custom_name(options, number) or DEFAULT_OUTPUT_NAME.format(
         number=number
     )
+
+
+def remap_edid_labels(
+    labels: Mapping[str, str],
+    previous: Mapping[int, str],
+    current: Mapping[int, str],
+) -> tuple[dict[str, str], list[tuple[str, str | None, str | None]]]:
+    """Move the names of the EDIDs along when the matrix changes its list.
+
+    A name is stored under the number of its EDID, while a new firmware may
+    offer the same EDID under another number. Every name therefore follows the
+    description it was given for. A name whose description is gone stays with
+    its number if the matrix still offers it, and is dropped otherwise.
+
+    Returns the names to store and every name that could not follow its
+    description, with the description it was given for and the one of the EDID
+    it ends up with, which is None once it is dropped.
+    """
+    value_by_description: dict[str, int] = {}
+
+    for value, description in current.items():
+        value_by_description.setdefault(description, value)
+
+    remapped: dict[str, str] = {}
+    unmatched: list[tuple[int, str, str | None]] = []
+
+    for key, name in labels.items():
+        number = key.removeprefix(_EDID_LABEL_PREFIX)
+
+        if not key.startswith(_EDID_LABEL_PREFIX) or not number.isdecimal():
+            continue
+
+        value = int(number)
+        description = previous.get(value)
+        target = value_by_description.get(description) if description else None
+
+        if target is not None and edid_label_key(target) not in remapped:
+            remapped[edid_label_key(target)] = name
+        else:
+            unmatched.append((value, name, description))
+
+    # Names that found their description go first, so one that stays with its
+    # number does not take the place of one that moved there.
+    changed: list[tuple[str, str | None, str | None]] = []
+
+    for value, name, description in unmatched:
+        key = edid_label_key(value)
+
+        if value in current and key not in remapped:
+            remapped[key] = name
+            changed.append((name, description, current[value]))
+        else:
+            changed.append((name, description, None))
+
+    return remapped, changed
 
 
 def has_duplicates(options_by_value: Mapping[int, str]) -> bool:

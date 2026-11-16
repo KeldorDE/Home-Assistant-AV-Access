@@ -133,9 +133,10 @@ connected device.
 
 The list of EDIDs is read from the web interface of the matrix on port 80 while
 the integration is set up or reconfigured, as it depends on the firmware. If
-the web interface cannot be reached, the list of the 4KMX44-H2 is used instead
-and the next reconfiguration reads it again. The entry of the web interface
-that uploads an EDID file is not offered.
+the web interface cannot be reached, the list of the 4KMX44-H2 is used instead,
+a repair issue under **Settings → System → Repairs** says so, and the
+integration tries again every 15 minutes and on every start until it succeeds.
+The entry of the web interface that uploads an EDID file is not offered.
 
 The connection details can be changed later without losing the entities through
 **Settings → Devices & services → AV Access → Reconfigure**. The address may
@@ -170,6 +171,11 @@ one field per EDID, labelled with the name the matrix uses, to replace it with
 a name of your own. Leaving a field empty restores the name of the matrix, and
 every EDID name must be unique. Actions and automations select an EDID by the
 name that is shown, so they have to be adapted after renaming one.
+
+If the matrix offers a different list of EDIDs, for example after a firmware
+update, every name follows the EDID description it was given for. A name whose
+description no longer exists is listed in a repair issue, so it can be checked
+in the dialog; saving the dialog dismisses the issue.
 
 Renaming a port only changes the name of its entities and the
 options of a select, not the entity ID. To change the name or the entity ID of

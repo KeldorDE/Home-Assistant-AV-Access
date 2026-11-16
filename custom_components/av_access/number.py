@@ -25,13 +25,18 @@ async def async_setup_entry(
     """Set up AV Access HDMI matrix number entities."""
     coordinator = entry.runtime_data
 
-    # A matrix that does not support CEC reports no CEC state at all.
+    # A matrix that does not support CEC reports no CEC state at all. One that
+    # does gets an entity on every output, even if the answer of a single
+    # output got lost during the setup.
+    if not coordinator.data["cec_delay"]:
+        return
+
     async_add_entities(
         AVAccessCecDelayNumber(
             coordinator=coordinator,
             output=output,
         )
-        for output in sorted(coordinator.data["cec_delay"])
+        for output in range(1, coordinator.device_info.output_count + 1)
     )
 
 

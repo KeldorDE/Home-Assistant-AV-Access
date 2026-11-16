@@ -509,6 +509,11 @@ class AVAccessClient:
         self._output_count = DEFAULT_OUTPUT_COUNT
 
         self._bulk_routing_supported = True
+
+        # Set once GET MP all was answered, after which a missing answer is
+        # taken as lost instead of as a sign that the command is unknown.
+        self._bulk_routing_confirmed = False
+
         self._hdcp_supported = True
         self._cec_supported = True
 
@@ -638,16 +643,26 @@ class AVAccessClient:
             )
 
             if routing:
+                self._bulk_routing_confirmed = True
                 return routing
 
-            # An unsupported command is answered with the welcome line, so this
-            # matrix needs one command per output from now on.
-            self._bulk_routing_supported = False
+            # An unsupported command is answered with the welcome line, and so
+            # is a command the matrix discarded twice. A matrix that already
+            # answered it once only lost this answer, so it is asked per output
+            # this time and keeps getting the single command afterwards.
+            if self._bulk_routing_confirmed:
+                _LOGGER.debug(
+                    "The matrix did not answer %s this time, querying every output",
+                    COMMAND_ROUTING_ALL,
+                )
 
-            _LOGGER.debug(
-                "The matrix does not support %s, querying every output",
-                COMMAND_ROUTING_ALL,
-            )
+            else:
+                self._bulk_routing_supported = False
+
+                _LOGGER.debug(
+                    "The matrix does not support %s, querying every output",
+                    COMMAND_ROUTING_ALL,
+                )
 
         routing: dict[int, int] = {}
 
@@ -700,19 +715,17 @@ class AVAccessClient:
         for input_number in range(1, self._input_count + 1):
             value = await self.async_get_input_hdcp(input_number)
 
-            if value is None:
-                # Unknown commands are answered with the welcome line, so a
-                # matrix without HDCP support is recognized on the first input.
-                if not hdcp:
-                    self._hdcp_supported = False
+            if value is not None:
+                hdcp[input_number] = value
 
-                    _LOGGER.debug("The matrix does not support HDCP commands")
+        # Unknown commands are answered with the welcome line, and so is a
+        # command the matrix discarded twice. Only a matrix that answers on no
+        # input at all lacks HDCP support, so one lost answer does not remove
+        # the HDCP entities until the next reload.
+        if not hdcp:
+            self._hdcp_supported = False
 
-                    return {}
-
-                continue
-
-            hdcp[input_number] = value
+            _LOGGER.debug("The matrix does not support HDCP commands")
 
         return hdcp
 
@@ -833,19 +846,15 @@ class AVAccessClient:
         for output in range(1, self._output_count + 1):
             value = await self.async_get_output_cec_auto(output)
 
-            if value is None:
-                # Unknown commands are answered with the welcome line, so a
-                # matrix without CEC support is recognized on the first output.
-                if not cec_auto:
-                    self._cec_supported = False
+            if value is not None:
+                cec_auto[output] = value
 
-                    _LOGGER.debug("The matrix does not support CEC commands")
+        # Like HDCP, only a matrix that answers on no output at all lacks CEC
+        # support, so one lost answer does not remove the CEC entities.
+        if not cec_auto:
+            self._cec_supported = False
 
-                    return {}
-
-                continue
-
-            cec_auto[output] = value
+            _LOGGER.debug("The matrix does not support CEC commands")
 
         return cec_auto
 

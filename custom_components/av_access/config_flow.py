@@ -44,7 +44,8 @@ from .const import (
     MIN_PORT,
     MIN_SCAN_INTERVAL,
 )
-from .edid import async_read_edid_options
+from .edid import async_read_edid_options, async_remap_edid_labels
+from .issues import async_delete_edid_labels_changed_issue
 from .labels import (
     device_edid_options,
     edid_label_key,
@@ -290,15 +291,26 @@ class AVAccessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ):
                     return self.async_abort(reason="already_configured")
 
+                data = {
+                    **user_input,
+                    **await self._async_edid_data(
+                        user_input[CONF_HOST],
+                        reconfigure_entry.data,
+                    ),
+                }
+
+                # A new firmware may list the EDIDs differently, so their names
+                # move along with the descriptions they were given for.
+                options, _ = async_remap_edid_labels(
+                    self.hass,
+                    reconfigure_entry,
+                    data,
+                )
+
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
-                    data={
-                        **user_input,
-                        **await self._async_edid_data(
-                            user_input[CONF_HOST],
-                            reconfigure_entry.data,
-                        ),
-                    },
+                    data=data,
+                    options=options,
                     unique_id=device_info.unique_id,
                 )
 
@@ -378,6 +390,10 @@ class AVAccessOptionsFlow(config_entries.OptionsFlowWithReload):
                 errors["base"] = "duplicate_labels"
 
             else:
+                # The user has seen the names of the EDIDs now, so the request
+                # to check them after the list of the matrix changed is done.
+                async_delete_edid_labels_changed_issue(self.hass, entry)
+
                 return self.async_create_entry(data=options)
 
             stored_inputs = options[CONF_INPUT_LABELS]

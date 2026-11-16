@@ -109,6 +109,16 @@ EDID_SOURCE_FALLBACK = "fallback"
 # Seconds the web interface may take to hand out its page with the EDID list.
 EDID_LIST_TIMEOUT = 10.0
 
+# Seconds between two attempts to read the EDID list while the built-in list
+# stands in for it, for example because the matrix was switched off while Home
+# Assistant started.
+EDID_LIST_RETRY_INTERVAL = 900
+
+# Repair issues, raised once per entry. The ID of an issue ends with the ID of
+# its entry.
+ISSUE_EDID_LIST_FALLBACK = "edid_list_fallback"
+ISSUE_EDID_LABELS_CHANGED = "edid_labels_changed"
+
 # Stands in for the list of a matrix whose web interface cannot be read. It is
 # the list of the 4KMX44-H2 with firmware ARM 2.8, MCU 3.3 and WEB 1.08, keyed
 # by the number the matrix expects and reports.

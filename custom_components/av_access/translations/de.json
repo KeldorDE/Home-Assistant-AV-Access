@@ -177,5 +177,15 @@
         "command_failed": {
             "message": "Die Matrix hat den Befehl nicht ausgeführt: {error}"
         }
+    },
+    "issues": {
+        "edid_list_fallback": {
+            "description": "Home Assistant konnte die Liste der EDIDs nicht aus der Weboberfläche von {name} unter http://{host}/ lesen und bietet stattdessen eine eingebaute Liste an, die nicht zur Firmware deiner Matrix passen muss.\n\nDie Integration versucht es alle 15 Minuten und bei jedem Start erneut, diese Meldung verschwindet, sobald es klappt. Stelle sicher, dass die Weboberfläche der Matrix von Home Assistant aus erreichbar ist.",
+            "title": "{name}: EDID-Liste konnte nicht gelesen werden"
+        },
+        "edid_labels_changed": {
+            "description": "{name} bietet jetzt eine andere Liste von EDIDs an. Deine eigenen Namen folgen der EDID, für die sie vergeben wurden, die folgenden passen aber zu keiner Bezeichnung mehr. Zu jedem steht die Bezeichnung, für die er vergeben wurde, und die EDID, zu der er jetzt gehört, oder – wenn er entfernt wurde, weil die Matrix seine EDID nicht mehr anbietet:\n\n{labels}\n\nPrüfe diese Namen in den Optionen der Integration und passe Automationen und Skripte an, die einen davon auswählen. Das Speichern der Optionen schließt diese Meldung.",
+            "title": "{name}: Namen der EDIDs prüfen"
+        }
     }
 }

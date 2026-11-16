@@ -96,7 +96,10 @@ class AVAccessEntity(CoordinatorEntity[AVAccessCoordinator]):
 
             return
 
-        self._async_report_external_change()
+        # A port whose answer got lost has no state yet. Learning it later is
+        # no change at the matrix.
+        if previous_state is not None:
+            self._async_report_external_change()
 
     @callback
     def _async_report_external_change(self) -> None:

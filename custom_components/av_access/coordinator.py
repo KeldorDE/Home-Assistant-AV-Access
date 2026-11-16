@@ -335,19 +335,14 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
         frontend react at once. The value the matrix confirms
         replaces it, and a failed command restores the previous value. A later
         command for the same port has the last word in both cases.
+
+        The command is sent even if the port already shows the requested value.
+        That value may be outdated, as somebody can change the matrix at the
+        front panel between two polls and the settings are only read once a
+        minute, while a command costs less than a tenth of a second.
         """
         key = (section, port)
         previous = self.data[section].get(port)
-
-        # Skip sending the command if the port already has the desired value.
-        if previous == value:
-            _LOGGER.debug(
-                "The %s value of port %d already is %s, skipping the command",
-                section,
-                port,
-                value,
-            )
-            return
 
         token = object()
         self._latest_commands[key] = token
@@ -509,7 +504,12 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
             return status
 
-        outputs = await self.client.async_get_routing()
+        routing = await self.client.async_get_routing()
+
+        # An output missing from an answer keeps its previous input instead of
+        # turning unknown, which would also report a change at the matrix once
+        # the output shows up again.
+        outputs = {**self.data["outputs"], **routing}
 
         edid = dict(self.data["edid"])
         hdcp = dict(self.data["hdcp"])
@@ -519,7 +519,7 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
 
         # The values read from the matrix during this poll.
         read: list[tuple[_Section, int]] = [
-            ("outputs", output_port) for output_port in outputs
+            ("outputs", output_port) for output_port in routing
         ]
 
         if self._settings_due(started):
@@ -582,19 +582,24 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
     ) -> None:
         """Read the EDID and the HDCP state of every input into the values.
 
-        Only ports the matrix reported during the setup have entities, so no
-        other port is queried and no entity appears afterwards. A value the
-        matrix does not report this time keeps the previous one.
+        A setting the matrix did not report for any port during the setup is
+        not supported and has no entities, so it is not queried. Otherwise
+        every port is, including one whose answer got lost during the setup,
+        so its entity gets a value. A value the matrix does not report this
+        time keeps the previous one.
         """
+        read_edid = bool(edid)
+        read_hdcp = bool(hdcp)
+
         for input_number in range(1, self.device_info.input_count + 1):
-            if input_number in edid:
+            if read_edid:
                 value = await self.client.async_get_input_edid(input_number)
 
                 if value is not None:
                     edid[input_number] = value
                     read.append(("edid", input_number))
 
-            if input_number in hdcp:
+            if read_hdcp:
                 state = await self.client.async_get_input_hdcp(input_number)
 
                 if state is not None:
@@ -610,25 +615,30 @@ class AVAccessCoordinator(DataUpdateCoordinator[AVAccessStatus]):
     ) -> None:
         """Read the audio mute and the CEC settings of every output.
 
-        Like the inputs, only ports the matrix reported during the setup are
-        queried, and a value the matrix does not report keeps the previous one.
+        Like the inputs, only settings the matrix supports are queried, then on
+        every port, and a value the matrix does not report keeps the previous
+        one.
         """
+        read_audio_mute = bool(audio_mute)
+        read_cec_auto = bool(cec_auto)
+        read_cec_delay = bool(cec_delay)
+
         for output in range(1, self.device_info.output_count + 1):
-            if output in audio_mute:
+            if read_audio_mute:
                 muted = await self.client.async_get_output_audio_mute(output)
 
                 if muted is not None:
                     audio_mute[output] = muted
                     read.append(("audio_mute", output))
 
-            if output in cec_auto:
+            if read_cec_auto:
                 enabled = await self.client.async_get_output_cec_auto(output)
 
                 if enabled is not None:
                     cec_auto[output] = enabled
                     read.append(("cec_auto", output))
 
-            if output in cec_delay:
+            if read_cec_delay:
                 minutes = await self.client.async_get_output_cec_delay(output)
 
                 if minutes is not None:

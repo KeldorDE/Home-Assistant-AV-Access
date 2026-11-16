@@ -11,6 +11,22 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+### Added
+
+- Report a repair issue while the EDID list of the matrix cannot be read and the built-in list stands in for it, and read it again every 15 minutes and on every start instead of only when the integration is reconfigured
+- Keep the names of the EDIDs with the EDIDs they were given for when the matrix offers a different list, for example after a firmware update, and report a repair issue for every name that no longer matches an EDID
+
+### Changed
+
+- Read the EDID list of an entry that was set up before version 2.0.0 in the background instead of delaying the start
+
+### Fixed
+
+- Send a command even if Home Assistant already shows the requested value, as the matrix may have been changed at the front panel since the last poll
+- Keep reading the routing with a single command after the matrix lost one answer, instead of one command per output until the integration is reloaded
+- Keep the input of an output that is missing from an answer of the matrix instead of showing it as unknown and reporting a change at the matrix afterwards
+- Create the HDCP and CEC entities of every port even if the matrix lost an answer while the integration was set up, and read the settings of such a port with the next poll
+
 ## [2.0.0] - 2026-11-15
 
 ### Added

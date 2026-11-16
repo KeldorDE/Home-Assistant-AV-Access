@@ -30,9 +30,13 @@ async def async_setup_entry(
     entities: list[ButtonEntity] = []
 
     # A matrix that does not support CEC reports no CEC state at all, so the
-    # outputs of the automatic CEC power function are the ones that accept the
-    # manual CEC power commands as well.
-    for output in sorted(coordinator.data["cec_auto"]):
+    # automatic CEC power function tells whether it accepts the manual CEC
+    # power commands as well. Every output gets them then, even if the answer
+    # of a single output got lost during the setup.
+    if not coordinator.data["cec_auto"]:
+        return
+
+    for output in range(1, coordinator.device_info.output_count + 1):
         entities.append(
             AVAccessCecPowerButton(
                 coordinator=coordinator,

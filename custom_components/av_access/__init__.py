@@ -8,9 +8,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .client import AVAccessClient, AVAccessError
-from .const import CONF_EDID_OPTIONS, CONF_EDID_OPTIONS_SOURCE
+from .const import CONF_EDID_OPTIONS_SOURCE, EDID_SOURCE_DEVICE
 from .coordinator import AVAccessCoordinator
-from .edid import async_read_edid_options
+from .edid import async_start_edid_list_refresh
+from .issues import async_delete_edid_list_fallback_issue, async_delete_issues
 
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
@@ -44,23 +45,6 @@ async def async_setup_entry(
             f"Unable to read the AV Access matrix device information: {err}"
         ) from err
 
-    # An entry that was set up before the EDID list was read from the matrix
-    # has none. It is read once here, the configuration dialog refreshes it.
-    if CONF_EDID_OPTIONS not in entry.data:
-        edid_options, edid_source = await async_read_edid_options(
-            hass,
-            entry.data[CONF_HOST],
-        )
-
-        hass.config_entries.async_update_entry(
-            entry,
-            data={
-                **entry.data,
-                CONF_EDID_OPTIONS: edid_options,
-                CONF_EDID_OPTIONS_SOURCE: edid_source,
-            },
-        )
-
     coordinator = AVAccessCoordinator(
         hass=hass,
         client=client,
@@ -79,6 +63,16 @@ async def async_setup_entry(
         PLATFORMS,
     )
 
+    # An entry that was set up before the EDID list was read from the matrix,
+    # or while its web interface could not be read, uses the built-in list. The
+    # list of the matrix is read in the background instead of delaying the
+    # start, and the entry reloads once it differs. This only starts once the
+    # matrix answered, so a setup that is retried does not start it each time.
+    if entry.data.get(CONF_EDID_OPTIONS_SOURCE) == EDID_SOURCE_DEVICE:
+        async_delete_edid_list_fallback_issue(hass, entry)
+    else:
+        async_start_edid_list_refresh(hass, entry)
+
     return True
 
 
@@ -91,3 +85,11 @@ async def async_unload_entry(
         entry,
         PLATFORMS,
     )
+
+
+async def async_remove_entry(
+    hass: HomeAssistant,
+    entry: AVAccessConfigEntry,
+) -> None:
+    """Withdraw the repair issues of an AV Access HDMI Matrix that is removed."""
+    async_delete_issues(hass, entry)
