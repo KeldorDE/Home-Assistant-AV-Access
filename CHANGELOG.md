@@ -11,6 +11,8 @@ Tags are named after the version itself, for example `1.0.0`.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-17
+
 ### Added
 
 - Repair issue while the EDID list cannot be read, retried every 15 minutes and on every start
